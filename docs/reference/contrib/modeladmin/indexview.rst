@@ -324,6 +324,22 @@ language) you can override the ``get_ordering()`` method instead.
 Set ``list_per_page`` to control how many items appear on each paginated page
 of the index view. By default, this is set to ``100``.
 
+
+.. _modeladmin_exclude_from_explorer:
+
+----------------------------
+``ModelAdmin.exclude_from_explorer``
+----------------------------
+
+**Expected value**: A boolean
+
+**Default value**: ``False``
+
+If you're adding a ModelAdmin class for a page type model, and would like pages
+of that type to be hidden from the Explorer, you can acheive that be setting
+``exclude_from_explorer=True`` on your ModelAdmin class.
+
+
 .. _modeladmin_get_queryset:
 
 -----------------------------
