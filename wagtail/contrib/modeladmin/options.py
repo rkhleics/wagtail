@@ -98,16 +98,6 @@ class ThumbnailMixin(object):
         return mark_safe('<img{}>'.format(flatatt(img_attrs)))
     admin_thumb.short_description = thumb_col_header_text
 
-    def get_extra_attrs_for_field_col(self, obj, field_name):
-        """
-        Add a width attribute to the admin_thumb column to free up space
-        """
-        attrs = super(ThumbnailMixin, self).get_extra_attrs_for_field_col(
-            obj, field_name)
-        if field_name == 'admin_thumb':
-            attrs['width'] = self.thumb_image_width
-        return attrs
-
 
 class ModelAdmin(WagtailRegisterable):
     """
