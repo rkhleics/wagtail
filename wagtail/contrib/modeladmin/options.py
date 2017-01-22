@@ -10,7 +10,6 @@ from django.utils.translation import ugettext_lazy as _
 
 from wagtail.wagtailcore import hooks
 from wagtail.wagtailcore.models import Page
-from wagtail.wagtailimages.models import Filter
 
 from .helpers import (
     AdminURLHelper, ButtonHelper, PageAdminURLHelper, PageButtonHelper, PagePermissionHelper,
@@ -86,13 +85,17 @@ class ThumbnailMixin(object):
             'width': self.thumb_image_width,
             'class': self.thumb_classname,
         }
-        if image:
-            fltr = Filter(spec=self.thumb_image_filter_spec)
-            img_attrs.update({'src': image.get_rendition(fltr).url})
-            return mark_safe('<img{}>'.format(flatatt(img_attrs)))
-        elif self.thumb_default:
-            return mark_safe('<img{}>'.format(flatatt(img_attrs)))
-        return ''
+        if not image:
+            if self.thumb_default:
+                return mark_safe('<img{}>'.format(flatatt(img_attrs)))
+            return ''
+
+        # get a rendition of the image to use
+        from wagtail.wagtailimages.shortcuts import get_rendition_or_not_found
+        spec = self.thumb_image_filter_spec
+        rendition = get_rendition_or_not_found(image, spec)
+        img_attrs.update({'src': rendition.url})
+        return mark_safe('<img{}>'.format(flatatt(img_attrs)))
     admin_thumb.short_description = thumb_col_header_text
 
 
@@ -157,7 +160,6 @@ class ModelAdmin(WagtailRegisterable):
         self.permission_helper = self.get_permission_helper_class()(
             self.model, self.inspect_view_enabled)
         self.url_helper = self.get_url_helper_class()(self.model)
-
 
     def get_permission_helper_class(self):
         """
