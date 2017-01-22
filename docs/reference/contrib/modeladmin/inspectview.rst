@@ -27,9 +27,8 @@ class:
 ``ModelAdmin.inspect_view_fields``
 ------------------------------------------
 
-**Expected value:** A list or tuple, where each item is the name of a field,
-attribute, or single-argument callable on the instance that you'd like 
-``InpectView`` to render.
+**Expected value:** A list or tuple, where each item is the name of a field
+or attribute on the instance that you'd like ``InpectView`` to render.
 
 A sensible value will be rendered for most field types.
 
