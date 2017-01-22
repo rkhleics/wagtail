@@ -861,8 +861,6 @@ class InspectView(InstanceSpecificView):
         # Now let's get the attribute value from the instance itself and see if
         # we can render something useful. raises AttributeError appropriately.
         val = getattr(self.instance, field_name)
-        if callable(val):
-            val = val()
 
         # wagtail.wagtailimages might not be installed
         try:
