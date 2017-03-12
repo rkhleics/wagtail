@@ -11,6 +11,7 @@ from django.utils.http import urlquote
 from django.utils.translation import ugettext as _
 
 from wagtail.wagtailcore.models import Page, UserPagePermissionsProxy
+from wagtail.wagtailadmin.widgets import Button
 
 
 class AdminURLHelper(object):
@@ -38,10 +39,12 @@ class AdminURLHelper(object):
         return '%s_%s_modeladmin_%s' % (
             self.opts.app_label, self.opts.model_name, action)
 
-    def get_action_url(self, action, *args, **kwargs):
+    def get_action_url(self, action, obj=None, *args, **kwargs):
         if action in ('create', 'choose_parent', 'index'):
             return reverse(self.get_action_url_name(action))
         url_name = self.get_action_url_name(action)
+        if obj:
+            args.append(quote(getattr(obj, self.opts.pk.attname)))
         return reverse(url_name, args=args, kwargs=kwargs)
 
     @cached_property
@@ -400,3 +403,61 @@ class PageButtonHelper(ButtonHelper):
                 self.delete_button(pk, classnames_add, classnames_exclude)
             )
         return btns
+
+
+class IntrospectiveButtonHelper(object):
+
+    default_button_classnames = ['button']
+
+    @staticmethod
+    def modify_button_css_classes(self, button_set, remove=(), add=()):
+        pass
+
+    def __init__(self, view, request, codename_list):
+        self.view = view
+        self.request = request
+        self.codename_list = codename_list
+        self.opts = view.model._meta
+        self.verbose_name = force_text(self.opts.verbose_name)
+        self.verbose_name_plural = force_text(self.opts.verbose_name_plural)
+
+    def get_button_definition(self, codename, for_obj=None):
+        attr_name = '%s_button' % codename
+        attr = None
+        if hasattr(self.view, attr_name):
+            attr = getattr(self.view, attr_name)
+        elif hasattr(self.view.model_admin, attr):
+            attr = getattr(self.view.model_admin, attr_name)
+        elif hasattr(self, attr_name):
+            attr = getattr(self, attr_name)
+        else:
+            return self.create_button_from_codename(codename, for_obj)
+
+        if not callable(attr):
+            return attr
+        try:
+            return attr(self.request, for_obj)
+        except TypeError:
+            return attr(self.request)
+        return attr()
+
+    def create_button_from_codename(self, codeneme, for_obj):
+        pass
+
+    def get_button_set_for_obj(self, obj):
+        cache_key = '_buttons_for_obj_%s' % obj.pk
+        try:
+            return getattr(self, cache_key)
+        except AttributeError:
+            pass
+
+        definitions = (
+            self.get_button_definition(cn, obj) for cn in self.codename_list
+        )
+        buttons = []
+        for bd in definitions:
+            if isinstance(bd, Button):
+                buttons.append(bd)
+            if bd is not None:
+                buttons.append(Button(**bd))
+        setattr(self, cache_key, buttons)
