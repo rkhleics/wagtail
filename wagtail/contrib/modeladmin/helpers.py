@@ -8,10 +8,19 @@ from django.core.urlresolvers import reverse
 from django.utils.encoding import force_text
 from django.utils.functional import cached_property
 from django.utils.http import urlquote
+from django.utils.six import string_types
 from django.utils.translation import ugettext as _
 
 from wagtail.wagtailcore.models import Page, UserPagePermissionsProxy
-from wagtail.wagtailadmin.widgets import Button
+from wagtail.wagtailadmin.widgets import Button, BaseDropdownMenuButton
+
+
+class ButtonWithDropdown(BaseDropdownMenuButton):
+    def __init__(self, label, menu_items, obj, *args, **kwargs):
+        self.label = label
+        self.menu_items = menu_items
+        self.obj = obj
+        super(ButtonWithDropdown, self).__init__(*args, **kwargs)
 
 
 class AdminURLHelper(object):
@@ -39,13 +48,16 @@ class AdminURLHelper(object):
         return '%s_%s_modeladmin_%s' % (
             self.opts.app_label, self.opts.model_name, action)
 
-    def get_action_url(self, action, obj=None, *args, **kwargs):
+    def get_action_url(self, action, *args, **kwargs):
         if action in ('create', 'choose_parent', 'index'):
             return reverse(self.get_action_url_name(action))
         url_name = self.get_action_url_name(action)
-        if obj:
-            args.append(quote(getattr(obj, self.opts.pk.attname)))
         return reverse(url_name, args=args, kwargs=kwargs)
+
+    def get_action_url_for_obj(self, action, obj):
+        return self.get_action_url(
+            action, quote(getattr(obj, self.opts.pk.attname))
+        )
 
     @cached_property
     def index_url(self):
@@ -73,7 +85,6 @@ class PermissionHelper(object):
     user can do with a 'typical' model (where permissions are granted
     model-wide), and to a specific instance of that model.
     """
-
     def __init__(self, model, inspect_view_enabled=False):
         self.model = model
         self.opts = model._meta
@@ -84,7 +95,6 @@ class PermissionHelper(object):
         Return a queryset of all Permission objects pertaining to the `model`
         specified at initialisation.
         """
-
         return Permission.objects.filter(
             content_type__app_label=self.opts.app_label,
             content_type__model=self.opts.model_name,
@@ -98,7 +108,6 @@ class PermissionHelper(object):
         Combine `perm_codename` with `self.opts.app_label` to call the provided
         Django user's built-in `has_perm` method.
         """
-
         return user.has_perm("%s.%s" % (self.opts.app_label, perm_codename))
 
     def user_has_any_permissions(self, user):
@@ -153,11 +162,55 @@ class PermissionHelper(object):
         perm_codename = self.get_perm_codename('delete')
         return self.user_has_specific_permission(user, perm_codename)
 
-    def user_can_unpublish_obj(self, user, obj):
-        return False
+    def user_has_permission(self, user, codename, obj):
+        object_specific_method_name = 'user_can_%s_obj' % codename
+        blanket_method_name = 'user_can_%s' % codename
 
-    def user_can_copy_obj(self, user, obj):
-        return False
+        if obj and hasattr(self, object_specific_method_name):
+            attr = getattr(self, object_specific_method_name)
+            try:
+                return attr(user=user, obj=obj)
+            except TypeError:
+                raise TypeError(
+                    "The '%s' method on your '%s' class should accept "
+                    "'user' and 'obj' as arguments, with no other "
+                    "required arguments" % (
+                        object_specific_method_name, self.__class__.__name__,
+                    )
+                )
+
+        elif hasattr(self, blanket_method_name):
+            attr = getattr(self, blanket_method_name)
+            try:
+                return self(user=user)
+            except TypeError:
+                raise TypeError(
+                    "The '%s' method on your '%s' class should accept "
+                    "'user' as an arguments, with no other required "
+                    "arguments" % (
+                        object_specific_method_name, self.__class__.__name__,
+                    )
+                )
+
+        raise ValueError(
+            "'%s' is an invalid permission codename for '%s'. Try adding "
+            "your own '%s' or '%s' methods to allow it to check users "
+            "for the appropriate permissions" % (
+                codename,
+                self.__class__.__name__,
+                object_specific_method_name,
+                blanket_method_name,
+            )
+        )
+
+    def user_has_all_permissions(self, user, codename_list, obj):
+        if isinstance(codename_list, string_types):
+            codename_list = (codename_list, )
+        for cn in codename_list:
+            if not self.user_has_permission(user, cn, obj):
+                return False
+        return True
+
 
 
 class PagePermissionHelper(PermissionHelper):
@@ -424,140 +477,71 @@ class IntrospectiveButtonHelper(object):
         button.classes.difference_update(remove)
         button.classes.update(add)
 
-    def __init__(self, view, request, codename_list):
+    def __init__(self, view, request):
         self.view = view
         self.request = request
-        self.codename_list = codename_list
         self.opts = view.model._meta
         self.verbose_name = force_text(self.opts.verbose_name)
         self.verbose_name_plural = force_text(self.opts.verbose_name_plural)
 
-    def get_button_definition(self, codename, for_obj=None):
+    def get_button_definition(self, codename, obj=None):
         attr_name = '%s_button' % codename
         attr = None
-        if hasattr(self.view, attr_name):
-            attr = getattr(self.view, attr_name)
-        elif hasattr(self.view.model_admin, attr):
+        if hasattr(self.view.model_admin, attr):
             attr = getattr(self.view.model_admin, attr_name)
         elif hasattr(self, attr_name):
             attr = getattr(self, attr_name)
         else:
-            return self.create_button_from_codename(codename, for_obj)
+            return self.button_definition_from_codename(codename, obj)
 
         if not callable(attr):
             return attr
         try:
-            return attr(self.request, for_obj)
+            return attr(request=self.request, obj=obj)
         except TypeError:
             return attr(self.request)
         return attr()
 
-    def get_button_set_for_obj(self, obj):
-        cache_key = '_buttons_for_obj_%s' % obj.pk
-        try:
-            return getattr(self, cache_key)
-        except AttributeError:
-            pass
-
-        definitions = (
-            self.get_button_definition(cn, obj) for cn in self.codename_list
+    def get_button_set_for_obj(self, obj, codename_list):
+        button_definitions = []
+        for val in codename_list:
+            if isinstance(val, tuple):
+                button_definitions.append(
+                    ButtonWithDropdown(
+                        label=val[0],
+                        menu_items=self.get_button_set_for_obj(obj, val[1]),
+                        obj=obj
+                    )
+                )
+        button_definitions = (
+            self.get_button_definition(cn, obj) for cn in codename_list
         )
         buttons = []
-        for bd in definitions:
-            if isinstance(bd, Button):
-                buttons.append(bd)
+        for bd in button_definitions:
             if bd is not None:
-                buttons.append(Button(**bd))
-        setattr(self, cache_key, buttons)
+                permissions_required = bd.pop('permissions_required', None)
+                bd['classes'] = set(bd.get('classes', []))
+                if permissions_required:
+                    if self.view.permission_helper.user_has_all_permissions(
+                        self.request.user, permissions_required, obj
+                    ):
+                        buttons.append(Button(**bd))
+                else:
+                    buttons.append(Button(**bd))
+        return buttons
 
-    def check_user_has_permission(self, codename, obj):
-        perms_helper = self.view.permission_helper
-        object_specific_method_name = 'user_can_%s_obj' % codename
-        blanket_method_name = 'user_can_%s' % codename
-
-        if obj and hasattr(perms_helper, object_specific_method_name):
-            p_method = getattr(perms_helper, object_specific_method_name)
-            try:
-                return p_method(self.request.user, obj)
-            except TypeError:
-                raise TypeError(
-                    "The '%s' object couldn't check for '%s' permission. '%s' "
-                    "on your '%s' class must be a method that accepts 'user' "
-                    "and 'obj' arguments" % (
-                        self.__class__.__name__,
-                        codename,
-                        object_specific_method_name,
-                        perms_helper.__class.__name__,
-                    )
-                )
-
-        elif hasattr(perms_helper, blanket_method_name):
-            p_method = getattr(perms_helper, blanket_method_name)
-            try:
-                return p_method(self.request.user)
-            except TypeError:
-                raise TypeError(
-                    "The '%s' object couldn't check for '%s' permission. '%s' "
-                    "on your '%s' class must be a method that accepts just a "
-                    "'user' argument" % (
-                        self.__class__.__name__,
-                        codename,
-                        object_specific_method_name,
-                        perms_helper.__class.__name__,
-                    )
-                )
-
-        elif self.view.model_admin.is_pagemodel:
-            raise ValueError(
-                "The '%s' object cannot check for '%s' permission for '%s' "
-                "objects. Please update the permission helper class on "
-                "your '%s' class to include a '%s' or '%s' method to allow "
-                "'%s' permission to be checked for each user." % (
-                    self.__class__.__name__,
-                    codename,
-                    self.view.mode_admin.__class__.__name__,
-                    object_specific_method_name,
-                    blanket_method_name,
-                    codename,
-                )
-            )
-
-        if codename in ('unpublish', 'move', 'copy'):
-            raise ValueError(
-                "The '%s' object cannot check for '%s' permission for '%s' "
-                "objects. '%s' functionality is only available for page type "
-                "models. Please remove '%s' update the permission helper class on "
-                "your '%s' class to include a '%s' or '%s' method to allow "
-                "'%s' permission to be checked for each user." % (
-                    self.__class__.__name__,
-                    codename,
-                    self.view.mode_admin.__class__.__name__,
-                    object_specific_method_name,
-                    blanket_method_name,
-                    codename,
-                )
-            )
-
-        raise ValueError(
-            "The '%s' object cannot check for '%s' permission for '%s' "
-            "objects. Please update the permission helper class on "
-            "your '%s' class to include a '%s' or '%s' method to allow "
-            "'%s' permission to be checked for each user." % (
-                self.__class__.__name__,
-                codename,
-                self.view.mode_admin.__class__.__name__,
-                object_specific_method_name,
-                blanket_method_name,
-                codename,
-            )
-        )
-
-    def create_button_from_codename(self, codename, obj):
-        # TODO: check permission and return None if no permission
-        # TODO: update PermissionHelper to skip certain checks for superusers
+    def button_definition_from_codename(self, codename, obj):
+        label = codename.replace('_', ' ').capitalize()
+        classes = list(self.default_button_css_classes)
+        classes.extend(getattr(self, '%s_button_css_classes' % codename, []))
         return {
-            'url': self.url_helper.get_action_url(codename, obj=obj),
-            'label': _('Delete'),
-            'classes': [],
-            'title': _('Delete this %s') % self.verbose_name,
+            'url': self.view.url_helper.get_action_url_for_obj(codename, obj),
+            'label': label,
+            'classes': classes,
+            'permissions_required': (codename,),
         }
+
+    def inspect_button(self, request, obj):
+        if not self.view.model_admin.inspect_view_enabled:
+            return None
+        return self.button_definition_from_codename('inspect', obj)
