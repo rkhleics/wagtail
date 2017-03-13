@@ -127,6 +127,14 @@ class PermissionHelper(object):
         """
         return self.user_has_any_permissions(user)
 
+    def user_can_create(self, user):
+        """
+        DEPRECATED. Return a boolean to indicate whether `user` is permitted
+        to create new instances of `self.model`
+        """
+        perm_codename = self.get_perm_codename('add')
+        return self.user_has_specific_permission(user, perm_codename)
+
     def user_can_add(self, user):
         """
         Return a boolean to indicate whether `user` is permitted to create new
@@ -134,9 +142,6 @@ class PermissionHelper(object):
         """
         perm_codename = self.get_perm_codename('add')
         return self.user_has_specific_permission(user, perm_codename)
-
-    def user_can_create(self, user):
-        return self.user_can_add(user)
 
     def user_can_inspect_obj(self, user, obj):
         """
@@ -264,6 +269,8 @@ class PagePermissionHelper(PermissionHelper):
         added somewhere in the tree essentially determines the add permission,
         rather than actual model-wide permissions
         """
+        if user.is_superuser:
+            return True
         return self.get_valid_parent_pages(user).exists()
 
     def user_can_edit_obj(self, user, obj):
@@ -274,13 +281,23 @@ class PagePermissionHelper(PermissionHelper):
         perms = obj.permissions_for_user(user)
         return perms.can_delete()
 
-    def user_can_publish_obj(self, user, obj):
-        perms = obj.permissions_for_user(user)
-        return obj.live and perms.can_unpublish()
-
     def user_can_copy_obj(self, user, obj):
         parent_page = obj.get_parent()
         return parent_page.permissions_for_user(user).can_publish_subpage()
+
+    def user_can_publish_obj(self, user, obj):
+        if obj.live:
+            # TODO: This check should really be made elsewhere
+            return False
+        perms = obj.permissions_for_user(user)
+        return perms.can_publish()
+
+    def user_can_unpublish_obj(self, user, obj):
+        if not obj.live:
+            # TODO: This check should really be made elsewhere
+            return False
+        perms = obj.permissions_for_user(user)
+        return perms.can_unpublish()
 
 
 class ButtonHelper(object):
