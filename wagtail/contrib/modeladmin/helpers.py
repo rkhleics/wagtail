@@ -269,8 +269,6 @@ class PagePermissionHelper(PermissionHelper):
         added somewhere in the tree essentially determines the add permission,
         rather than actual model-wide permissions
         """
-        if user.is_superuser:
-            return True
         return self.get_valid_parent_pages(user).exists()
 
     def user_can_edit_obj(self, user, obj):
