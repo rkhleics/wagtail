@@ -517,12 +517,31 @@ class IntrospectiveButtonHelper(object):
             return attr(self.request)
         return attr()
 
-    def make_button_from_kwargs(self, **kwargs):
+    def make_button_definition_for_action(self, codename, obj):
+        """
+        Create a dictionary of arguments that can be used to create a button
+        for action `codename` for `obj`
+        """
+        ma = self.model_admin  # for tidyness
+        permissions_required = None
+        if self.permission_helper.has_methods_to_check_for_action(codename):
+            permissions_required = codename
 
-        # Notice 'obj' and 'permissions_required' are popped from kwargs, and
-        # so won't be passed as init kwargs to `self.button_class`
-        perms_required = kwargs.pop('permissions_required', [])
-        obj = kwargs.pop('obj', None)
+        # With the exception of 'permissions_required', these values
+        # will be used as init kwargs to create a `self.button_class` instance
+        return {
+            'permissions_required': permissions_required,
+            'url': ma.get_button_url_for_action(codename, obj),
+            'label': ma.get_button_label_for_action(codename, obj),
+            'title': ma.get_button_title_for_action(codename, obj),
+            'classes': ma.get_button_css_classes_for_action(codename, obj),
+        }
+
+
+    def make_button_for_obj(self, obj, **button_kwargs):
+        # Note: 'permissions_required' is popped from button_kwargs, and
+        # so won't be passed as an init kwarg to `self.button_class`
+        perms_required = button_kwargs.pop('permissions_required', [])
         if perms_required:
             # If perms_required is a single string, make it into a tuple
             if isinstance(perms_required, string_types):
@@ -535,8 +554,8 @@ class IntrospectiveButtonHelper(object):
             ):
                 return None
         # Always make 'classes' a set
-        kwargs['classes'] = set(kwargs.get('classes', []))
-        return self.button_class(**kwargs)
+        button_kwargs['classes'] = set(button_kwargs.get('classes', []))
+        return self.button_class(**button_kwargs)
 
     def get_button_set_for_obj(self, obj, codename_list):
         button_definitions = []
@@ -555,34 +574,17 @@ class IntrospectiveButtonHelper(object):
                 button_definitions.append(self.get_button_definition(val, obj))
 
         for definition in button_definitions:
+            # `definition` could be a `Button` instance
             if isinstance(definition, Button) and definition.show:
                 buttons.append(definition)
             elif definition:
-                button = self.make_button_from_kwargs(**definition)
+                # `definition` is a dict of init kwargs
+                button = self.make_button_for_obj(obj, **definition)
                 if button:
+                    # `button` could be `None` if, for example, the user was
+                    # found to have insufficient permissions
                     buttons.append(button)
         return buttons
-
-    def make_button_definition_for_action(self, codename, obj):
-        """
-        Create a dictionary of arguments that can be used to create a button
-        for action `codename` for `obj`
-        """
-        ma = self.model_admin  # for tidyness
-        permissions_required = None
-        if self.permission_helper.has_methods_to_check_for_action(codename):
-            permissions_required = codename
-
-        # With the exception of 'obj' and 'permissions_required', the values
-        # will be used as init kwargs for a `self.button_class` instance.
-        return {
-            'obj': obj,
-            'permissions_required': permissions_required,
-            'url': ma.get_button_url_for_action(codename, obj),
-            'label': ma.get_button_label_for_action(codename, obj),
-            'title': ma.get_button_title_for_action(codename, obj),
-            'classes': ma.get_button_css_classes_for_action(codename, obj),
-        }
 
     def unpublish_button(self, request, obj):
         if not obj.live:
