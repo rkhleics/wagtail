@@ -210,15 +210,6 @@ class PermissionHelper(object):
             )
         )
 
-    def user_has_all_permissions(self, user, codename_list, obj):
-        if isinstance(codename_list, string_types):
-            codename_list = (codename_list, )
-        for cn in codename_list:
-            if not self.user_has_permission(user, cn, obj):
-                return False
-        return True
-
-
 
 class PagePermissionHelper(PermissionHelper):
     """
@@ -482,27 +473,25 @@ class IntrospectiveButtonHelper(object):
     delete_button_css_classes = ['no']
 
     @classmethod
-    def modify_button_set_css_classes(cls, button_set, remove=(), add=()):
-        for button in button_set:
-            cls.modify_button_css_classes(button, remove, add)
-
-    @classmethod
     def modify_button_css_classes(cls, button, remove=(), add=()):
         button.classes.difference_update(remove)
         button.classes.update(add)
 
-    def __init__(self, view, request):
-        self.view = view
+    @classmethod
+    def modify_button_set_css_classes(cls, button_set, remove=(), add=()):
+        for button in button_set:
+            cls.modify_button_css_classes(button, remove, add)
+
+    def __init__(self, request, model_admin, permission_helper):
         self.request = request
-        self.opts = view.model._meta
-        self.verbose_name = force_text(self.opts.verbose_name)
-        self.verbose_name_plural = force_text(self.opts.verbose_name_plural)
+        self.model_admin = model_admin
+        self.permission_helper = permission_helper
 
     def get_button_definition(self, codename, obj=None):
         attr_name = '%s_button' % codename
         attr = None
-        if hasattr(self.view.model_admin, attr):
-            attr = getattr(self.view.model_admin, attr_name)
+        if hasattr(self.ma, attr):
+            attr = getattr(self.ma, attr_name)
         elif hasattr(self, attr_name):
             attr = getattr(self, attr_name)
         else:
@@ -516,46 +505,62 @@ class IntrospectiveButtonHelper(object):
             return attr(self.request)
         return attr()
 
+    def create_button_from_kwargs(self, button_kwargs, obj):
+        perms_required = button_kwargs.pop('permissions_required', [])
+        if perms_required:
+            # If perms_required is a single string, make it into a tuple
+            if isinstance(perms_required, string_types):
+                perms_required = (perms_required, )
+            # Check that user must have all the necessary perms
+            if not any(
+                self.permission_helper.user_has_all_permissions(
+                    self.request.user, perm, obj
+                ) for perm in perms_required
+            ):
+                return None
+        # Always make 'classes' a set
+        button_kwargs['classes'] = set(button_kwargs.get('classes', []))
+        return Button(**button_kwargs)
+
     def get_button_set_for_obj(self, obj, codename_list):
         button_definitions = []
+        buttons = []
+
         for val in codename_list:
             if isinstance(val, tuple):
-                button_definitions.append(
-                    ButtonWithDropdown(
-                        label=val[0],
-                        menu_items=self.get_button_set_for_obj(obj, val[1]),
-                        obj=obj
-                    )
-                )
-        button_definitions = (
-            self.get_button_definition(cn, obj) for cn in codename_list
-        )
-        buttons = []
-        for bd in button_definitions:
-            if bd is not None:
-                permissions_required = bd.pop('permissions_required', None)
-                bd['classes'] = set(bd.get('classes', []))
-                if permissions_required:
-                    if self.view.permission_helper.user_has_all_permissions(
-                        self.request.user, permissions_required, obj
-                    ):
-                        buttons.append(Button(**bd))
+                if len(val) == 3:
+                    title = val[1]
+                    items = val[2]
                 else:
-                    buttons.append(Button(**bd))
+                    title = _("View more options for '%s'") % obj
+                    items = val[1]
+                button_definitions.append(ButtonWithDropdown(
+                    label=val[0], title=title, items=items,
+                ))
+            else:
+                button_definitions.append(self.get_button_definition(val, obj))
+
+        for definition in button_definitions:
+            if isinstance(definition, Button) and definition.show:
+                buttons.append(definition)
+            elif definition:
+                button = self.create_button_from_kwargs(definition, obj)
+                if button:
+                    buttons.append(button)
         return buttons
 
     def button_definition_from_codename(self, codename, obj):
-        label = codename.replace('_', ' ').capitalize()
         classes = list(self.default_button_css_classes)
         classes.extend(getattr(self, '%s_button_css_classes' % codename, []))
         return {
-            'url': self.view.url_helper.get_action_url_for_obj(codename, obj),
-            'label': label,
+            'url': self.ma.get_button_url_for_action(codename, obj),
+            'label': self.ma.get_button_label_for_action(codename, obj),
+            'title': self.ma.get_button_title_for_action(codename, obj),
             'classes': classes,
             'permissions_required': (codename,),
         }
 
     def inspect_button(self, request, obj):
-        if not self.view.model_admin.inspect_view_enabled:
+        if not self.ma.inspect_view_enabled:
             return None
         return self.button_definition_from_codename('inspect', obj)
