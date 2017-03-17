@@ -461,7 +461,10 @@ class PageButtonHelper(ButtonHelper):
             btns.append(
                 self.copy_button(pk, classnames_add, classnames_exclude)
             )
-        if('unpublish' not in exclude and ph.user_can_unpublish_obj(usr, obj)):
+        if(
+            'unpublish' not in exclude and
+            obj.live and ph.user_can_unpublish_obj(usr, obj)
+        ):
             btns.append(
                 self.unpublish_button(pk, classnames_add, classnames_exclude)
             )
