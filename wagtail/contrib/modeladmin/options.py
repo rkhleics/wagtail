@@ -251,6 +251,18 @@ class ModelAdmin(WagtailRegisterable):
         """
         return mark_safe(self.empty_value_display)
 
+    def get_button_label_for_action(self, codename, obj):
+        return codename.replace('_', ' ').capitalize()
+
+    def get_button_title_for_action(self, codename, obj):
+        if codename == 'view_live':
+            return _("View live version of '%s'") % obj
+        return _("%(action)s %(model_name)s '%(object_str)s'") % {
+            'action': codename.replace('_', ' ').capitalize(),
+            'model_name': self.opts.verbose_name,
+            'object_str': obj,
+        }
+
     def get_list_filter(self, request):
         """
         Returns a sequence containing the fields to be displayed as filters in
