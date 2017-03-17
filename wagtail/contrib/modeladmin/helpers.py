@@ -16,11 +16,13 @@ from wagtail.wagtailadmin.widgets import Button, BaseDropdownMenuButton
 
 
 class ButtonWithDropdown(BaseDropdownMenuButton):
-    def __init__(self, label, menu_items, obj, *args, **kwargs):
-        self.label = label
-        self.menu_items = menu_items
-        self.obj = obj
+    def __init__(self, *args, **kwargs):
+        self.items = kwargs.pop('items', [])
         super(ButtonWithDropdown, self).__init__(*args, **kwargs)
+
+    @cached_property
+    def dropdown_buttons(self):
+        return self.items
 
 
 class AdminURLHelper(object):
