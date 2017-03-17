@@ -87,6 +87,16 @@ class PermissionHelper(object):
     user can do with a 'typical' model (where permissions are granted
     model-wide), and to a specific instance of that model.
     """
+
+    @classmethod
+    def has_methods_to_check_for_action(cls, codename):
+        object_specific_method_name = 'user_can_%s_obj' % codename
+        blanket_method_name = 'user_can_%s' % codename
+        return (
+            hasattr(cls, blanket_method_name) or
+            hasattr(cls, object_specific_method_name)
+        )
+
     def __init__(self, model, inspect_view_enabled=False):
         self.model = model
         self.opts = model._meta
@@ -172,6 +182,18 @@ class PermissionHelper(object):
     def user_has_permission(self, user, codename, obj):
         object_specific_method_name = 'user_can_%s_obj' % codename
         blanket_method_name = 'user_can_%s' % codename
+
+        if not self.has_methods_to_check_for_action(codename):
+            raise ValueError(
+                "'%s' is an invalid permission codename for '%s'. Try adding "
+                "your own '%s' or '%s' methods to allow it to check users "
+                "for the appropriate permissions" % (
+                    codename,
+                    self.__class__.__name__,
+                    object_specific_method_name,
+                    blanket_method_name,
+                )
+            )
 
         if obj and hasattr(self, object_specific_method_name):
             attr = getattr(self, object_specific_method_name)
