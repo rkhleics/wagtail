@@ -281,23 +281,17 @@ class PagePermissionHelper(PermissionHelper):
         perms = obj.permissions_for_user(user)
         return perms.can_delete()
 
-    def user_can_copy_obj(self, user, obj):
-        parent_page = obj.get_parent()
-        return parent_page.permissions_for_user(user).can_publish_subpage()
+    def user_can_unpublish_obj(self, user, obj):
+        perms = obj.permissions_for_user(user)
+        return perms.can_unpublish()
 
     def user_can_publish_obj(self, user, obj):
-        if obj.live:
-            # TODO: This check should really be made elsewhere
-            return False
         perms = obj.permissions_for_user(user)
         return perms.can_publish()
 
-    def user_can_unpublish_obj(self, user, obj):
-        if not obj.live:
-            # TODO: This check should really be made elsewhere
-            return False
-        perms = obj.permissions_for_user(user)
-        return perms.can_unpublish()
+    def user_can_copy_obj(self, user, obj):
+        parent_page = obj.get_parent()
+        return parent_page.permissions_for_user(user).can_publish_subpage()
 
 
 class ButtonHelper(object):
