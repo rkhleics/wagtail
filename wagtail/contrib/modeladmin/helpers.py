@@ -221,16 +221,7 @@ class PermissionHelper(object):
                     )
                 )
 
-        raise ValueError(
-            "'%s' is an invalid permission codename for '%s'. Try adding "
-            "your own '%s' or '%s' methods to allow it to check users "
-            "for the appropriate permissions" % (
-                codename,
-                self.__class__.__name__,
-                object_specific_method_name,
-                blanket_method_name,
-            )
-        )
+        return False
 
 
 class PagePermissionHelper(PermissionHelper):
