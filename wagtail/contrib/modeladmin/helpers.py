@@ -494,10 +494,10 @@ class IntrospectiveButtonHelper(object):
         for button in button_set:
             cls.modify_button_css_classes(button, remove, add)
 
-    def __init__(self, request, model_admin, permission_helper):
+    def __init__(self, request, model_admin):
         self.request = request
         self.model_admin = model_admin
-        self.permission_helper = permission_helper
+        self.permission_helper = model_admin.permission_helper
 
     def get_button_definition(self, codename, obj=None):
         attr_name = '%s_button' % codename
