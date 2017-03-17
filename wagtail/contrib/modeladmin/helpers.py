@@ -481,10 +481,6 @@ class PageButtonHelper(ButtonHelper):
 
 class IntrospectiveButtonHelper(object):
 
-    default_button_css_classes = ['button']
-    add_button_css_classes = ['bicolor', 'icon', 'icon-plus']
-    delete_button_css_classes = ['no']
-
     @classmethod
     def modify_button_css_classes(cls, button, remove=(), add=()):
         button.classes.difference_update(remove)

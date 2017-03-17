@@ -6,6 +6,7 @@ from django.contrib.auth.models import Permission
 from django.core.exceptions import ImproperlyConfigured
 from django.db.models import Model
 from django.forms.utils import flatatt
+from django.utils.encoding import force_text
 from django.utils.safestring import mark_safe
 from django.utils.translation import ugettext_lazy as _
 
@@ -148,6 +149,9 @@ class ModelAdmin(WagtailRegisterable):
     permission_helper_class = None
     url_helper_class = None
     button_helper_class = None
+    default_button_css_classes = ['button']
+    add_button_css_classes = ['bicolor', 'icon', 'icon-plus']
+    delete_button_css_classes = ['no']
     index_view_extra_css = []
     index_view_extra_js = []
     inspect_view_extra_css = []
@@ -165,6 +169,8 @@ class ModelAdmin(WagtailRegisterable):
                 u"The model attribute on your '%s' class must be set, and "
                 "must be a valid Django model." % self.__class__.__name__)
         self.opts = self.model._meta
+        self.model_verbose_name = force_text(self.opts.verbose_name)
+        self.model_verbose_name_plural = force_text(self.opts.verbose_name_plural)
         self.is_pagemodel = issubclass(self.model, Page)
         self.parent = parent
         self.permission_helper = self.get_permission_helper_class()(
@@ -251,10 +257,15 @@ class ModelAdmin(WagtailRegisterable):
         """
         return mark_safe(self.empty_value_display)
 
+    def get_button_url_for_action(self, codename, obj):
+        return self.url_helper.get_action_url_for_obj(codename, obj)
+
     def get_button_label_for_action(self, codename, obj):
         return codename.replace('_', ' ').capitalize()
 
     def get_button_title_for_action(self, codename, obj):
+        if codename == 'dropdown':
+            return _("View more options for '%s'") % obj
         if codename == 'view_live':
             return _("View live version of '%s'") % obj
         return _("%(action)s %(model_name)s '%(object_str)s'") % {
@@ -263,8 +274,12 @@ class ModelAdmin(WagtailRegisterable):
             'object_str': obj,
         }
 
-    def get_button_url_for_action(self, codename, obj):
-        return self.url_helper.get_action_url_for_obj(codename, obj)
+    def get_button_css_classes_for_action(self, codename, obj):
+        classes = list(self.default_button_css_classes)
+        action_specific_list_attr = '%s_button_css_classes' % codename
+        if hasattr(self, action_specific_list_attr):
+            classes.extend(getattr(self, action_specific_list_attr, []))
+        return classes
 
     def get_list_filter(self, request):
         """
