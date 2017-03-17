@@ -518,6 +518,9 @@ class IntrospectiveButtonHelper(object):
         return attr()
 
     def make_button_from_kwargs(self, **kwargs):
+
+        # Notice 'obj' and 'permissions_required' are popped from kwargs, and
+        # so won't be passed as init kwargs to `self.button_class`
         perms_required = kwargs.pop('permissions_required', [])
         obj = kwargs.pop('obj', None)
         if perms_required:
@@ -571,7 +574,7 @@ class IntrospectiveButtonHelper(object):
             permissions_required = codename
 
         # With the exception of 'obj' and 'permissions_required', the values
-        # will be used as init kwargs for creating a `Button` instance.
+        # will be used as init kwargs for a `self.button_class` instance.
         return {
             'obj': obj,
             'permissions_required': permissions_required,
