@@ -263,6 +263,9 @@ class ModelAdmin(WagtailRegisterable):
             'object_str': obj,
         }
 
+    def get_button_url_for_action(self, codename, obj):
+        return self.url_helper.get_action_url_for_obj(codename, obj)
+
     def get_list_filter(self, request):
         """
         Returns a sequence containing the fields to be displayed as filters in
