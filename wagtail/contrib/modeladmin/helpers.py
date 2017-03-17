@@ -481,6 +481,9 @@ class PageButtonHelper(ButtonHelper):
 
 class IntrospectiveButtonHelper(object):
 
+    button_class = Button
+    dropdown_button_class = ButtonWithDropdown
+
     @classmethod
     def modify_button_css_classes(cls, button, remove=(), add=()):
         button.classes.difference_update(remove)
@@ -530,7 +533,7 @@ class IntrospectiveButtonHelper(object):
                 return None
         # Always make 'classes' a set
         kwargs['classes'] = set(kwargs.get('classes', []))
-        return Button(**kwargs)
+        return self.button_class(**kwargs)
 
     def get_button_set_for_obj(self, obj, codename_list):
         button_definitions = []
@@ -542,9 +545,9 @@ class IntrospectiveButtonHelper(object):
                 title = self.model_admin.get_button_title_for_action(
                     'dropdown', obj
                 )
-                button_definitions.append(
-                    ButtonWithDropdown(label=val[0], title=title, items=items)
-                )
+                button_definitions.append(self.dropdown_button_class(
+                    label=val[0], title=title, items=items
+                ))
             else:
                 button_definitions.append(self.get_button_definition(val, obj))
 
