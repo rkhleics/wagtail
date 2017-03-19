@@ -260,8 +260,7 @@ class IndexView(WMABaseView):
         )
 
     def get_buttons_for_obj(self, obj):
-        if hasattr(self.button_helper, 'get_button_set_for_obj'):
-            # GenericButtonHelper method
+        if isinstance(self.button_helper, GenericButtonHelper):
             return self.button_helper.get_button_set_for_obj(
                 obj=obj,
                 codename_list=self.model_admin.get_index_view_button_names(
