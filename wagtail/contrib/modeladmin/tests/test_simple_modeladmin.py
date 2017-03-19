@@ -219,11 +219,16 @@ class TestInspectView(TestCase, WagtailTestUtils):
 
     def test_author_name_present(self):
         """
-        The author name should appear twice. Once in the header, and once
-        more in the field listing
+        The author name should should appear a set number of times in
+        different places
         """
         response = self.get_for_author(1)
-        self.assertContains(response, 'J. R. R. Tolkien', 2)
+        # Once in the h1 heading
+        self.assertContains(response, 'Inspecting <span>J. R. R. Tolkien</span>', 1)
+        # In the list of details, as `name` is NOT in `inspect_view_fields_exclude`
+        self.assertContains(response, '<dd>J. R. R. Tolkien</dd>', 1)
+        # Twice in title attributes in footer buttons
+        self.assertContains(response, "author &#39;J. R. R. Tolkien&#39;", 2)
 
     def test_author_dob_not_present(self):
         """
@@ -239,20 +244,25 @@ class TestInspectView(TestCase, WagtailTestUtils):
 
     def test_book_title_present(self):
         """
-        The book title should appear once only, in the header, as 'title'
-        was added to the `inspect_view_fields_ignore` list
+        The book title should should appear a set number of times in different
+        places
         """
         response = self.get_for_book(1)
-        self.assertContains(response, 'The Lord of the Rings', 1)
+        # Once in the h1 heading
+        self.assertContains(response, 'Inspecting <span>The Lord of the Rings</span>', 1)
+        # NOT in the list of details, as `title` is in `inspect_view_fields_exclude`
+        self.assertNotContains(response, '<dd>The Lord of the Rings</dd>')
+        # Twice as title attributes in footer buttons
+        self.assertContains(response, "book &#39;The Lord of the Rings&#39;", 2)
 
     def test_book_author_present(self):
         """
         The author name should appear, because 'author' is not in
-        `inspect_view_fields_ignore` and should be returned by the
+        `inspect_view_fields_exclude` and should be returned by the
         `get_inspect_view_fields` method.
         """
         response = self.get_for_book(1)
-        self.assertContains(response, 'J. R. R. Tolkien', 1)
+        self.assertContains(response, '<dd>J. R. R. Tolkien</dd>', 1)
 
     def test_non_existent(self):
         response = self.get_for_book(100)

@@ -119,11 +119,11 @@ class TestInspectView(TestCase, WagtailTestUtils):
 
     def test_title_present(self):
         """
-        The page title should appear twice. Once in the header, and once
-        more in the field listing
+        The page title should appear once in the header, and once as a value
         """
         response = self.get(4)
-        self.assertContains(response, 'Christmas', 2)
+        self.assertContains(response, '<dd>Christmas</dd>', 1)
+        self.assertContains(response, 'Inspecting <span>Christmas</span>', 1)
 
     def test_location_present(self):
         """
