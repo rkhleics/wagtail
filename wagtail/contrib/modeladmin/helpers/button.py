@@ -110,7 +110,6 @@ class GenericButtonHelper(object):
         # Note: 'permissions_required' is popped from button_kwargs, and
         # so won't be passed as an init kwarg to `self.button_class`
         perms_required = button_kwargs.pop('permissions_required', [])
-        perms_required = None
         if perms_required:
             # If perms_required is a single string, make it into a tuple
             if isinstance(perms_required, string_types):
@@ -169,7 +168,6 @@ class GenericButtonHelper(object):
         """
         button_kwargs = self.get_button_kwargs_for_action(codename, obj)
         if not button_kwargs:
-            print 'no %s kwargs' % codename
             return None
         # `button_kwargs` might be a `Button` instance
         if isinstance(button_kwargs, Button) and button_kwargs.show:
@@ -177,7 +175,6 @@ class GenericButtonHelper(object):
         # `button_kwargs should be a dict
         button = self.create_button_instance_from_kwargs(obj, **button_kwargs)
         if button is not None:
-            print '%s button is None' % codename
             # `button` could be `None` if, for example, the user was found to
             # have insufficient permissions
             self.modify_button_css_classes(button, classes_add, classes_remove)
