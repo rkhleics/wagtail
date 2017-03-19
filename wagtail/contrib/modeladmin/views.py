@@ -36,7 +36,7 @@ from wagtail.wagtailadmin import messages
 from wagtail.wagtailadmin.edit_handlers import (
     ObjectList, extract_panel_definitions_from_model_class)
 
-from .helpers import IntrospectiveButtonHelper
+from .helpers import GenericButtonHelper
 from .forms import ParentChooserForm
 
 
@@ -70,8 +70,7 @@ class WMABaseView(TemplateView):
         if not self.check_action_permitted(request.user):
             raise PermissionDenied
         button_helper_class = self.model_admin.get_button_helper_class()
-        if issubclass(button_helper_class, IntrospectiveButtonHelper):
-            # Try the IntrospectiveButtonHelper implementation
+        if issubclass(button_helper_class, GenericButtonHelper):
             self.button_helper = button_helper_class(request, self.model_admin)
         else:
             self.button_helper = button_helper_class(self, request)
@@ -262,7 +261,7 @@ class IndexView(WMABaseView):
 
     def get_buttons_for_obj(self, obj):
         if hasattr(self.button_helper, 'get_button_set_for_obj'):
-            # IntrospectiveButtonHelper method
+            # GenericButtonHelper method
             return self.button_helper.get_button_set_for_obj(
                 obj=obj,
                 codename_list=self.model_admin.get_index_view_button_names(
@@ -947,7 +946,7 @@ class InspectView(InstanceSpecificView):
     def get_buttons(self):
         obj = self.instance
         if hasattr(self.button_helper, 'get_button_set_for_obj'):
-            # IntrospectiveButtonHelper method
+            # GenericButtonHelper method
             return self.button_helper.get_button_set_for_obj(
                 obj=obj,
                 codename_list=self.model_admin.get_inspect_view_button_names(
@@ -960,7 +959,6 @@ class InspectView(InstanceSpecificView):
     def get_context_data(self, **kwargs):
         context = {
             'fields': self.get_fields_dict(),
-            'button_list_template': self.button_helper.inspect_view_list_template,
             'buttons': self.get_buttons(),
         }
         context.update(kwargs)

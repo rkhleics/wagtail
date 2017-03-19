@@ -13,9 +13,7 @@ from django.utils.translation import ugettext_lazy as _
 from wagtail.wagtailcore import hooks
 from wagtail.wagtailcore.models import Page
 
-from .helpers import (
-    AdminURLHelper, PageAdminURLHelper, PagePermissionHelper,
-    PermissionHelper, IntrospectiveButtonHelper)
+from .helpers import AdminURLHelper, GenericButtonHelper, PageAdminURLHelper, PagePermissionHelper, PermissionHelper
 from .menus import GroupMenuItem, ModelAdminMenuItem, SubMenu
 from .views import ChooseParentView, CreateView, DeleteView, EditView, IndexView, InspectView
 
@@ -204,7 +202,7 @@ class ModelAdmin(WagtailRegisterable):
         """
         if self.button_helper_class:
             return self.button_helper_class
-        return IntrospectiveButtonHelper
+        return GenericButtonHelper
 
     def get_menu_label(self):
         """

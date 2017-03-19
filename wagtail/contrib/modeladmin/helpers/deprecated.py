@@ -12,8 +12,6 @@ class ButtonHelper(object):
     inspect_button_classnames = []
     edit_button_classnames = []
     delete_button_classnames = ['no']
-    index_view_list_template = 'modeladmin/includes/index_view_dict_button_list.html'
-    inspect_view_list_template = 'modeladmin/includes/inspect_view_dict_button_list.html'
 
     def __init__(self, view, request):
         self.view = view

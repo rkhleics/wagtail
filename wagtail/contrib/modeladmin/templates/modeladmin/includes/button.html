@@ -1,1 +1,1 @@
-<a{% if button.url %} href="{{ button.url }}"{% endif %} class="{{ button.classname }}" title="{{ button.title }}"{% if button.target %} target="{{ button.target }}"{% endif %}>{{ button.label }}</a>
+{% if button.can_render_self %}{{ button }}{% else %}<a{% if button.url %} href="{{ button.url }}"{% endif %} class="{{ button.classname }}" title="{{ button.title }}"{% if button.target %} target="{{ button.target }}"{% endif %}>{{ button.label }}</a>{% endif %}

@@ -7,6 +7,9 @@ from wagtail.wagtailadmin.widgets import Button, BaseDropdownMenuButton
 
 
 class ActionButton(Button):
+    """A subclass of Button that takes `title` as an __init__ argument"""
+    can_render_self = True
+
     def __init__(self, *args, **kwargs):
         title = kwargs.pop('title', None)
         if title:
@@ -18,6 +21,13 @@ class ActionButton(Button):
 
 
 class ActionButtonWithDropdown(BaseDropdownMenuButton):
+    """A subclass of BaseDropdownMenuButton that takes `title` and `items`
+    as __init__ arguments, and displays `items` (a list of buttons) in a
+    dropdown menu when rendered, using the same template the wagtailadmin's
+    page list view"""
+    can_render_self = True
+    template_name = 'wagtailadmin/pages/listing/_button_with_dropdown.html'
+
     def __init__(self, *args, **kwargs):
         title = kwargs.pop('title', None)
         if title:
@@ -26,6 +36,7 @@ class ActionButtonWithDropdown(BaseDropdownMenuButton):
             else:
                 kwargs['attrs'] = {'title': title}
         self.items = kwargs.pop('items', [])
+        self.is_parent = False
         super(ActionButtonWithDropdown, self).__init__(*args, **kwargs)
 
     @cached_property
@@ -33,12 +44,10 @@ class ActionButtonWithDropdown(BaseDropdownMenuButton):
         return self.items
 
 
-class IntrospectiveButtonHelper(object):
+class GenericButtonHelper(object):
 
     button_class = ActionButton
     dropdown_button_class = ActionButtonWithDropdown
-    index_view_list_template = 'modeladmin/includes/index_view_button_list.html'
-    inspect_view_list_template = 'modeladmin/includes/inspect_view_button_list.html'
 
     @classmethod
     def modify_button_css_classes(cls, button, add, remove):
@@ -50,34 +59,36 @@ class IntrospectiveButtonHelper(object):
         self.model_admin = model_admin
         self.permission_helper = model_admin.permission_helper
 
-    def get_button_definition(self, codename, obj=None):
+    def get_button_kwargs_for_action(self, codename, obj=None):
         """
-        Attempt to find a method or attribute that will return a button
-        definition for action `codename`, call it (if it's callable) and
-        return the value.
+        Attempt to find a method or attribute to that will give us the values
+        needed to define a button for action `codename` (potentially for a
+        specific `obj`)
         """
-        attribute_name = '%s_button' % codename
+        attribute_name = '%s_button_kwargs' % codename
         if hasattr(self.model_admin, attribute_name):
             attribute = getattr(self.model_admin, attribute_name)
         elif hasattr(self, attribute_name):
             attribute = getattr(self, attribute_name)
         else:
-            return self.make_button_definition_for_action(codename, obj)
+            # If no method was found, build our own dictionary
+            return self.build_button_kwargs_for_action(codename, obj)
 
         if not callable(attribute):
             return attribute
         try:
-            # Call the method with the standard `request` / `obj` arguments
+            # Try to call the method with the standard `request` / `obj` args
             return attribute(request=self.request, obj=obj)
         except TypeError:
-            # Some button definitions don't take an `obj` argument
+            # Some button definition methods don't take `obj`
             return attribute(request=self.request)
         return attribute()
 
-    def make_button_definition_for_action(self, codename, obj=None):
+    def build_button_kwargs_for_action(self, codename, obj=None):
         """
         Create a dictionary of arguments that can be used to create a button
-        for action `codename` for `obj`
+        for action `codename` for `obj` in the event that no specifically named
+        button is defined to do the same thing
         """
         ma = self.model_admin
         permissions_required = None
@@ -94,7 +105,7 @@ class IntrospectiveButtonHelper(object):
             'classes': ma.get_button_css_classes_for_action(codename, obj),
         }
 
-    def make_button_for_obj(self, obj, **button_kwargs):
+    def create_button_instance_from_kwargs(self, obj, **button_kwargs):
         # Note: 'permissions_required' is popped from button_kwargs, and
         # so won't be passed as an init kwarg to `self.button_class`
         perms_required = button_kwargs.pop('permissions_required', [])
@@ -103,7 +114,7 @@ class IntrospectiveButtonHelper(object):
             # If perms_required is a single string, make it into a tuple
             if isinstance(perms_required, string_types):
                 perms_required = (perms_required, )
-            # Check that user must have all the necessary perms
+            # Return `None` is the user doesn't have all necessary permissions
             if not any(
                 self.permission_helper.user_has_permission_for_action(
                     self.request.user, perm, obj
@@ -129,7 +140,9 @@ class IntrospectiveButtonHelper(object):
                     label=val[0], title=title, items=items
                 ))
             else:
-                button_definitions.append(self.get_button_definition(val, obj))
+                button_definitions.append(
+                    self.get_button_kwargs_for_action(val, obj)
+                )
 
         for definition in button_definitions:
             # `definition` could be a `Button` instance
@@ -137,7 +150,9 @@ class IntrospectiveButtonHelper(object):
                 buttons.append(definition)
             elif definition:
                 # `definition` is a dict of init kwargs
-                button = self.make_button_for_obj(obj, **definition)
+                button = self.create_button_instance_from_kwargs(
+                    obj, **definition
+                )
                 if button:
                     # `button` could be `None` if, for example, the user was
                     # found to have insufficient permissions
@@ -147,28 +162,63 @@ class IntrospectiveButtonHelper(object):
                     buttons.append(button)
         return buttons
 
-    def add_button(self, request):
-        return self.make_button_definition_for_action('add')
+    def get_button(self, codename, obj=None, classes_add=(), classes_remove=()):
+        """If appropriate, return a single button instance for action
+        `codename`, potentially for a specific `obj`. Otherwise, return `None`
+        """
+        button_kwargs = self.get_button_kwargs_for_action(codename, obj)
+        if not button_kwargs:
+            print 'no %s kwargs' % codename
+            return None
+        # `button_kwargs` might be a `Button` instance
+        if isinstance(button_kwargs, Button) and button_kwargs.show:
+            return button_kwargs
+        # `button_kwargs should be a dict
+        button = self.create_button_instance_from_kwargs(obj, **button_kwargs)
+        if button is not None:
+            print '%s button is None' % codename
+            # `button` could be `None` if, for example, the user was found to
+            # have insufficient permissions
+            self.modify_button_css_classes(button, classes_add, classes_remove)
+        return button
 
-    def inspect_button(self, request, obj):
+    def inspect_button_kwargs(self, request, obj):
+        """If appropriate, return a dict of arguments for defnining an
+        'inspect' button for `obj`. Otherwise, return `None` to prevent the
+        creation of a button"""
         if not self.model_admin.inspect_view_enabled:
+            # Prevent the button from appearing if the view is not enabled
             return None
-        return self.make_button_definition_for_action('inspect', obj)
+        return self.build_button_kwargs_for_action('inspect', obj)
 
-    def unpublish_button(self, request, obj):
+    def unpublish_button_kwargs(self, request, obj):
+        """If appropriate, return a dict of arguments for defining an
+        'unpublish' button for `obj`. Otherwise, return `None` to prevent the
+        creation of a button"""
         if not getattr(obj, 'live', False):
+            # Prevent the button from appearing if obj isn't 'live'
             return None
-        return self.make_button_definition_for_action('unpublish', obj)
+        return self.build_button_kwargs_for_action('unpublish', obj)
 
-    def view_draft_button(self, request, obj):
+    def view_draft_button_kwargs(self, request, obj):
+        """If appropriate, return a dict of arguments for defnining a
+        'view draft' button for `obj`. Otherwise, return `None` to prevent the
+        creation of a button"""
         if not getattr(obj, 'has_unpublished_changes', False):
+            # Prevent the button from appearing if there is no draft to view
             return None
-        return self.make_button_definition_for_action('view_draft', obj)
+        return self.build_button_kwargs_for_action('view_draft', obj)
 
-    def view_live_button(self, request, obj):
+    def view_live_button_kwargs(self, request, obj):
+        """If appropriate, return a dict of arguments for defnining a
+        'view live' button for `obj`. Otherwise, return `None` to prevent the
+        creation of a button"""
         if not getattr(obj, 'live', False):
+            # Prevent the button from appearing if obj isn't live
             return None
         ma = self.model_admin
+        # This particular button doesn't fit the usual pattern, so just define
+        # the dict here instead of deferring to `build_button_kwargs_for_action`
         return {
             'url': obj.relative_url(request.site),
             'label': ma.get_button_label_for_action('view_live', obj),
@@ -176,3 +226,8 @@ class IntrospectiveButtonHelper(object):
             'classes': ma.get_button_css_classes_for_action('view_live', obj),
             'attrs': {'target': '_blank'},
         }
+
+    def add_button(self):
+        """Added for backwards compatibility only. Individual buttons should be
+        fetched using `get_button()` instead"""
+        return self.get_button('add')

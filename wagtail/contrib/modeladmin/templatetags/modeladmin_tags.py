@@ -166,7 +166,6 @@ def result_row_display(context, index):
         'obj': obj,
         'row_attrs': mark_safe(flatatt(row_attrs_dict)),
         'action_buttons': view.get_buttons_for_obj(obj),
-        'button_list_template': view.button_helper.index_view_list_template,
     })
     return context
 
