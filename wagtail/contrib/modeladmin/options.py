@@ -266,6 +266,8 @@ class ModelAdmin(WagtailRegisterable):
     def get_button_title_for_action(self, codename, obj):
         if codename == 'dropdown':
             return _("View more options for '%s'") % obj
+        if codename == 'view_draft':
+            return _("Preview draft version of '%s'") % obj
         if codename == 'view_live':
             return _("View live version of '%s'") % obj
         return _("%(action)s %(model_name)s '%(object_str)s'") % {
