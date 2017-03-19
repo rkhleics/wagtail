@@ -3,18 +3,16 @@ from __future__ import absolute_import, unicode_literals
 from django.utils.functional import cached_property
 from django.utils.six import string_types
 
-from wagtail.wagtailadmin.widgets import Button as Btn, BaseDropdownMenuButton as DdBtn
+from wagtail.wagtailadmin.widgets import Button, BaseDropdownMenuButton
 
 
-class Button(Btn):
-    """A subclass of `Button` that takes `title` as an __init__ argument"""
+class ActionButton(Button):
     can_render_self = True  # Used by the `button.html`
 
 
-class DropdownMenuButton(DdBtn):
-    """A subclass of BaseDropdownMenuButton that takes `title` and `items`
-    as __init__ arguments, and displays `items` (a list of buttons) in a
-    dropdown menu when rendered"""
+class DropdownMenuButton(BaseDropdownMenuButton):
+    """A subclass of BaseDropdownMenuButton that takes a list of buttons as an
+    `items` argument, which display as a dropdown menu when rendered"""
     can_render_self = True  # Used by the `button.html`
     template_name = 'wagtailadmin/pages/listing/_button_with_dropdown.html'
 
@@ -30,7 +28,7 @@ class DropdownMenuButton(DdBtn):
 
 class GenericButtonHelper(object):
 
-    button_class = Button
+    button_class = ActionButton
     dropdown_button_class = DropdownMenuButton
 
     @classmethod
