@@ -42,11 +42,7 @@
     {% block footer %}
         {% if buttons %}
             <footer>
-                <div class="button-group">
-                    {% for button in buttons %}
-                        {% include "modeladmin/includes/button.html" %}
-                    {% endfor %}
-                </div>
+                {% include button_list_template %}
             </footer>
         {% endif %}
     {% endblock %}

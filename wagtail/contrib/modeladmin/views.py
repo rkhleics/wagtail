@@ -36,6 +36,7 @@ from wagtail.wagtailadmin import messages
 from wagtail.wagtailadmin.edit_handlers import (
     ObjectList, extract_panel_definitions_from_model_class)
 
+from .helpers import IntrospectiveButtonHelper
 from .forms import ParentChooserForm
 
 
@@ -69,7 +70,11 @@ class WMABaseView(TemplateView):
         if not self.check_action_permitted(request.user):
             raise PermissionDenied
         button_helper_class = self.model_admin.get_button_helper_class()
-        self.button_helper = button_helper_class(self, request)
+        if issubclass(button_helper_class, IntrospectiveButtonHelper):
+            # Try the IntrospectiveButtonHelper implementation
+            self.button_helper = button_helper_class(request, self.model_admin)
+        else:
+            self.button_helper = button_helper_class(self, request)
         return super(WMABaseView, self).dispatch(request, *args, **kwargs)
 
     @cached_property
@@ -256,8 +261,19 @@ class IndexView(WMABaseView):
         )
 
     def get_buttons_for_obj(self, obj):
+        if hasattr(self.button_helper, 'get_button_set_for_obj'):
+            # IntrospectiveButtonHelper method
+            return self.button_helper.get_button_set_for_obj(
+                obj=obj,
+                codename_list=self.model_admin.get_index_view_button_names(
+                    self.request
+                ),
+                classes_add=('button-small', 'button-secondary'),
+            )
+        # Deprecated ButtonHelper method
         return self.button_helper.get_buttons_for_obj(
-            obj, classnames_add=['button-small', 'button-secondary'])
+            obj=obj, classnames_add=['button-small', 'button-secondary']
+        )
 
     def get_search_results(self, request, queryset, search_term):
         """
@@ -928,11 +944,24 @@ class InspectView(InstanceSpecificView):
             fields.append(self.get_dict_for_field(field_name))
         return fields
 
+    def get_buttons(self):
+        obj = self.instance
+        if hasattr(self.button_helper, 'get_button_set_for_obj'):
+            # IntrospectiveButtonHelper method
+            return self.button_helper.get_button_set_for_obj(
+                obj=obj,
+                codename_list=self.model_admin.get_inspect_view_button_names(
+                    self.request
+                ),
+                classes_add=('button-small', 'button-secondary'),
+            )
+        return self.button_helper.get_buttons_for_obj(obj, exclude=['inspect'])
+
     def get_context_data(self, **kwargs):
         context = {
             'fields': self.get_fields_dict(),
-            'buttons': self.button_helper.get_buttons_for_obj(
-                self.instance, exclude=['inspect']),
+            'button_list_template': self.button_helper.inspect_view_list_template,
+            'buttons': self.get_buttons(),
         }
         context.update(kwargs)
         return super(InspectView, self).get_context_data(**context)

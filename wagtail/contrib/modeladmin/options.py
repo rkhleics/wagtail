@@ -14,8 +14,8 @@ from wagtail.wagtailcore import hooks
 from wagtail.wagtailcore.models import Page
 
 from .helpers import (
-    AdminURLHelper, ButtonHelper, PageAdminURLHelper, PageButtonHelper, PagePermissionHelper,
-    PermissionHelper)
+    AdminURLHelper, PageAdminURLHelper, PagePermissionHelper,
+    PermissionHelper, IntrospectiveButtonHelper)
 from .menus import GroupMenuItem, ModelAdminMenuItem, SubMenu
 from .views import ChooseParentView, CreateView, DeleteView, EditView, IndexView, InspectView
 
@@ -149,6 +149,8 @@ class ModelAdmin(WagtailRegisterable):
     permission_helper_class = None
     url_helper_class = None
     button_helper_class = None
+    index_view_button_names = None
+    inspect_view_button_names = None
     default_button_css_classes = ['button']
     add_button_css_classes = ['bicolor', 'icon', 'icon-plus']
     delete_button_css_classes = ['no']
@@ -202,9 +204,7 @@ class ModelAdmin(WagtailRegisterable):
         """
         if self.button_helper_class:
             return self.button_helper_class
-        if self.is_pagemodel:
-            return PageButtonHelper
-        return ButtonHelper
+        return IntrospectiveButtonHelper
 
     def get_menu_label(self):
         """
@@ -256,6 +256,24 @@ class ModelAdmin(WagtailRegisterable):
         Return the empty_value_display value defined on ModelAdmin
         """
         return mark_safe(self.empty_value_display)
+
+    def get_index_view_button_names(self, request):
+        if self.index_view_button_names is not None:
+            return self.index_view_button_names
+        if self.is_pagemodel:
+            return (
+                'inspect', 'edit', 'view_live', (
+                    _('More'), ('copy', 'delete', 'unpublish')
+                ),
+            )
+        return ('inspect', 'edit', 'delete')
+
+    def get_inspect_view_button_names(self, request):
+        if self.inspect_view_button_names is not None:
+            return self.inspect_view_button_names
+        if self.is_pagemodel:
+            return ('edit', 'copy', 'delete', 'unpublish')
+        return ('edit', 'delete')
 
     def get_button_url_for_action(self, codename, obj):
         return self.url_helper.get_action_url_for_obj(codename, obj)
