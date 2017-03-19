@@ -37,10 +37,11 @@ class AdminURLHelper(object):
         url_name = self.get_action_url_name(action)
         return reverse(url_name, args=args, kwargs=kwargs)
 
-    def get_action_url_for_obj(self, action, obj):
-        return self.get_action_url(
-            action, quote(getattr(obj, self.opts.pk.attname))
-        )
+    def get_action_url_for_obj(self, action, obj, *args):
+        if obj is None:
+            return self.get_action_url(action, *args)
+        args = (quote(getattr(obj, self.opts.pk.attname)),) + args
+        return self.get_action_url(action, *args)
 
     @cached_property
     def index_url(self):
