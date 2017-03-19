@@ -3,42 +3,25 @@ from __future__ import absolute_import, unicode_literals
 from django.utils.functional import cached_property
 from django.utils.six import string_types
 
-from wagtail.wagtailadmin.widgets import Button, BaseDropdownMenuButton
+from wagtail.wagtailadmin.widgets import Button as Btn, BaseDropdownMenuButton as DdBtn
 
 
-class WMAButtonMixin(object):
-
-    can_render_self = True  # Used by the `button.html` template
-
-    def __init__(self, *args, **kwargs):
-        """If supplied, catches 'title' argument and adds it to the `attrs`
-        dict argument to pass on to the `Button` class.
-        """
-        title = kwargs.pop('title', None)
-        if title:
-            if kwargs.get('attrs'):
-                kwargs['attrs']['title'] = title
-            else:
-                kwargs['attrs'] = {'title': title}
-        return super(WMAButtonMixin, self).__init__(*args, **kwargs)
-
-
-class WMAButton(WMAButtonMixin, Button):
+class Button(Btn):
     """A subclass of `Button` that takes `title` as an __init__ argument"""
-    pass
+    can_render_self = True  # Used by the `button.html`
 
 
-class WMAButtonWithDropdown(WMAButtonMixin, BaseDropdownMenuButton):
+class DropdownMenuButton(DdBtn):
     """A subclass of BaseDropdownMenuButton that takes `title` and `items`
     as __init__ arguments, and displays `items` (a list of buttons) in a
     dropdown menu when rendered"""
-
+    can_render_self = True  # Used by the `button.html`
     template_name = 'wagtailadmin/pages/listing/_button_with_dropdown.html'
 
     def __init__(self, *args, **kwargs):
         self.items = kwargs.pop('items', [])
         self.is_parent = False
-        super(WMAButtonWithDropdown, self).__init__(*args, **kwargs)
+        super(DropdownMenuButton, self).__init__(*args, **kwargs)
 
     @cached_property
     def dropdown_buttons(self):
@@ -47,8 +30,8 @@ class WMAButtonWithDropdown(WMAButtonMixin, BaseDropdownMenuButton):
 
 class GenericButtonHelper(object):
 
-    button_class = WMAButton
-    dropdown_button_class = WMAButtonWithDropdown
+    button_class = Button
+    dropdown_button_class = DropdownMenuButton
 
     @classmethod
     def modify_button_css_classes(cls, button, add, remove):
@@ -121,6 +104,11 @@ class GenericButtonHelper(object):
                 ) for perm in perms_required
             ):
                 return None
+        title = button_kwargs.pop('title', '')
+        try:
+            button_kwargs['attrs']['title'] = title
+        except KeyError:
+            button_kwargs['attrs'] = {'title': title}
         # Always make 'classes' a set
         button_kwargs['classes'] = set(button_kwargs.get('classes', []))
         return self.button_class(**button_kwargs)
@@ -137,7 +125,7 @@ class GenericButtonHelper(object):
                     'dropdown', obj
                 )
                 button_definitions.append(self.dropdown_button_class(
-                    label=val[0], title=title, items=items
+                    label=val[0], items=items, attrs={'title': title}
                 ))
             else:
                 button_definitions.append(
