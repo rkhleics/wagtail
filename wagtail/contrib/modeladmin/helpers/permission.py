@@ -67,16 +67,8 @@ class PermissionHelper(object):
 
     def user_can_create(self, user):
         """
-        DEPRECATED. Return a boolean to indicate whether `user` is permitted
+        Return a boolean to indicate whether `user` is permitted
         to create new instances of `self.model`
-        """
-        perm_codename = self.get_perm_codename('add')
-        return self.user_has_specific_permission(user, perm_codename)
-
-    def user_can_add(self, user):
-        """
-        Return a boolean to indicate whether `user` is permitted to create new
-        instances of `self.model`
         """
         perm_codename = self.get_perm_codename('add')
         return self.user_has_specific_permission(user, perm_codename)
@@ -137,13 +129,13 @@ class PermissionHelper(object):
         elif hasattr(self, blanket_method_name):
             attr = getattr(self, blanket_method_name)
             try:
-                return self(user=user)
+                return attr(user=user)
             except TypeError:
                 raise TypeError(
                     "The '%s' method on your '%s' class should accept "
                     "'user' as an arguments, with no other required "
                     "arguments" % (
-                        object_specific_method_name, self.__class__.__name__,
+                        blanket_method_name, self.__class__.__name__,
                     )
                 )
 

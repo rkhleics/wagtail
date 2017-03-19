@@ -150,7 +150,7 @@ class ModelAdmin(WagtailRegisterable):
     index_view_button_names = None
     inspect_view_button_names = None
     default_button_css_classes = ['button']
-    add_button_css_classes = ['bicolor', 'icon', 'icon-plus']
+    create_button_css_classes = ['bicolor', 'icon', 'icon-plus']
     delete_button_css_classes = ['no']
     index_view_extra_css = []
     index_view_extra_js = []
@@ -277,9 +277,13 @@ class ModelAdmin(WagtailRegisterable):
         return self.url_helper.get_action_url_for_obj(codename, obj)
 
     def get_button_label_for_action(self, codename, obj):
+        if codename == 'create':
+            return _('Add %s') % self.model_verbose_name
         return codename.replace('_', ' ').capitalize()
 
     def get_button_title_for_action(self, codename, obj):
+        if codename == 'create':
+            return _('Create a new %s') % self.model_verbose_name
         if codename == 'dropdown':
             return _("View more options for '%s'") % obj
         if codename == 'view_draft':
@@ -288,7 +292,7 @@ class ModelAdmin(WagtailRegisterable):
             return _("View live version of '%s'") % obj
         return _("%(action)s %(model_name)s '%(object_str)s'") % {
             'action': codename.replace('_', ' ').capitalize(),
-            'model_name': self.opts.verbose_name,
+            'model_name': self.model_verbose_name,
             'object_str': obj,
         }
 

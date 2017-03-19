@@ -6,38 +6,39 @@ from django.utils.six import string_types
 from wagtail.wagtailadmin.widgets import Button, BaseDropdownMenuButton
 
 
-class ActionButton(Button):
-    """A subclass of Button that takes `title` as an __init__ argument"""
-    can_render_self = True
+class WMAButtonMixin(object):
+
+    can_render_self = True  # Used by the `button.html` template
 
     def __init__(self, *args, **kwargs):
+        """If supplied, catches 'title' argument and adds it to the `attrs`
+        dict argument to pass on to the `Button` class.
+        """
         title = kwargs.pop('title', None)
         if title:
             if kwargs.get('attrs'):
                 kwargs['attrs']['title'] = title
             else:
                 kwargs['attrs'] = {'title': title}
-        return super(ActionButton, self).__init__(*args, **kwargs)
+        return super(WMAButtonMixin, self).__init__(*args, **kwargs)
 
 
-class ActionButtonWithDropdown(BaseDropdownMenuButton):
+class WMAButton(WMAButtonMixin, Button):
+    """A subclass of `Button` that takes `title` as an __init__ argument"""
+    pass
+
+
+class WMAButtonWithDropdown(WMAButtonMixin, BaseDropdownMenuButton):
     """A subclass of BaseDropdownMenuButton that takes `title` and `items`
     as __init__ arguments, and displays `items` (a list of buttons) in a
-    dropdown menu when rendered, using the same template the wagtailadmin's
-    page list view"""
-    can_render_self = True
+    dropdown menu when rendered"""
+
     template_name = 'wagtailadmin/pages/listing/_button_with_dropdown.html'
 
     def __init__(self, *args, **kwargs):
-        title = kwargs.pop('title', None)
-        if title:
-            if kwargs.get('attrs'):
-                kwargs['attrs']['title'] = title
-            else:
-                kwargs['attrs'] = {'title': title}
         self.items = kwargs.pop('items', [])
         self.is_parent = False
-        super(ActionButtonWithDropdown, self).__init__(*args, **kwargs)
+        super(WMAButtonWithDropdown, self).__init__(*args, **kwargs)
 
     @cached_property
     def dropdown_buttons(self):
@@ -46,8 +47,8 @@ class ActionButtonWithDropdown(BaseDropdownMenuButton):
 
 class GenericButtonHelper(object):
 
-    button_class = ActionButton
-    dropdown_button_class = ActionButtonWithDropdown
+    button_class = WMAButton
+    dropdown_button_class = WMAButtonWithDropdown
 
     @classmethod
     def modify_button_css_classes(cls, button, add, remove):
@@ -228,6 +229,6 @@ class GenericButtonHelper(object):
         }
 
     def add_button(self):
-        """Added for backwards compatibility only. Individual buttons should be
-        fetched using `get_button()` instead"""
-        return self.get_button('add')
+        """Added for backwards compatibility only. ModelAdmin should use
+        'create' rather than 'add' for consistency"""
+        return self.get_button('create')
