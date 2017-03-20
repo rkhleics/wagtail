@@ -55,6 +55,10 @@ class AdminURLHelper(object):
 class PageAdminURLHelper(AdminURLHelper):
 
     def get_action_url(self, action, *args, **kwargs):
+        # Note: 'add' is used below, because that's the terminology used by
+        # wagtail's page editing urls / views. For pages, if the action is
+        # 'create', this method should supply the URL for `ChooseParentView`,
+        # rather than going straight to 'wagtailadmin_pages:add'
         if action in (
             'add', 'edit', 'delete', 'copy', 'move', 'preview', 'view_draft',
             'unpublish', 'revisions_index', 'add_subpage'
