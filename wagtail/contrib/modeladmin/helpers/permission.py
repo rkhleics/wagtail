@@ -14,15 +14,6 @@ class PermissionHelper(object):
     model-wide), and to a specific instance of that model.
     """
 
-    @classmethod
-    def has_methods_to_check_for_action(cls, codename):
-        object_specific_method_name = 'user_can_%s_obj' % codename
-        blanket_method_name = 'user_can_%s' % codename
-        return (
-            hasattr(cls, blanket_method_name) or
-            hasattr(cls, object_specific_method_name)
-        )
-
     def __init__(self, model, inspect_view_enabled=False):
         self.model = model
         self.opts = model._meta
@@ -51,7 +42,7 @@ class PermissionHelper(object):
     def user_has_any_permissions(self, user):
         """
         Return a boolean to indicate whether `user` has any model-wide
-        permissions
+        permissions.
         """
         for perm in self.get_all_model_permissions().values('codename'):
             if self.user_has_specific_permission(user, perm['codename']):
@@ -97,7 +88,28 @@ class PermissionHelper(object):
         perm_codename = self.get_perm_codename('delete')
         return self.user_has_specific_permission(user, perm_codename)
 
+    @classmethod
+    def has_methods_to_check_for_action(cls, codename):
+        """
+        Returns a boolean indicating whether the class has methods to check
+        user permissions for a given action with codename `codename`. Useful
+        for checking existence of methods before calling
+        `user_has_permission_for_action`.
+        """
+        object_specific_method_name = 'user_can_%s_obj' % codename
+        blanket_method_name = 'user_can_%s' % codename
+        return (
+            hasattr(cls, blanket_method_name) or
+            hasattr(cls, object_specific_method_name)
+        )
+
     def user_has_permission_for_action(self, user, codename, obj):
+        """
+        Attempts to find a method on `self` to check whether `user` has
+        sufficient permissions to perform an action with codename `codename`.
+        If then attempts to call the method and return a boolean value,
+        indicating whether the check passed or failed.
+        """
         object_specific_method_name = 'user_can_%s_obj' % codename
         blanket_method_name = 'user_can_%s' % codename
 
@@ -133,13 +145,11 @@ class PermissionHelper(object):
             except TypeError:
                 raise TypeError(
                     "The '%s' method on your '%s' class should accept "
-                    "'user' as an arguments, with no other required "
+                    "'user' as an argument, with no other required "
                     "arguments" % (
                         blanket_method_name, self.__class__.__name__,
                     )
                 )
-
-        return False
 
 
 class PagePermissionHelper(PermissionHelper):
