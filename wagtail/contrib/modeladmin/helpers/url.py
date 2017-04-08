@@ -5,6 +5,11 @@ from django.core.urlresolvers import reverse
 from django.utils.functional import cached_property
 from django.utils.http import urlquote
 
+wagtailadmin_page_actions = (
+    'add', 'edit', 'delete', 'copy', 'move', 'preview', 'view_draft',
+    'unpublish', 'revisions_index', 'add_subpage'
+)
+
 
 class AdminURLHelper(object):
 
@@ -59,10 +64,7 @@ class PageAdminURLHelper(AdminURLHelper):
         # wagtail's page editing urls / views. For pages, if the action is
         # 'create', this method should supply the URL for `ChooseParentView`,
         # rather than going straight to 'wagtailadmin_pages:add'
-        if action in (
-            'add', 'edit', 'delete', 'copy', 'move', 'preview', 'view_draft',
-            'unpublish', 'revisions_index', 'add_subpage'
-        ):
+        if action in wagtailadmin_page_actions:
             url_name = 'wagtailadmin_pages:%s' % action
             target_url = reverse(url_name, args=args, kwargs=kwargs)
             return '%s?next=%s' % (target_url, urlquote(self.index_url))
