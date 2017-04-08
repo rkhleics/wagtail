@@ -352,6 +352,23 @@ class ModelAdmin(WagtailRegisterable):
             classes.extend(getattr(self, action_specific_list_attr, []))
         return classes
 
+    def get_permission_required_for_action(self, codename):
+        """
+        Returns a codename that PermissionHelper can use to check permission
+        for action `codename`
+        """
+        if codename == 'index':
+            return 'list'
+        if codename in ('create', 'choose_parent'):
+            return 'create'
+        if codename in ('edit', 'add_subpage', 'preview', 'view_draft',
+                        'revisions_index'):
+            return 'edit'
+        if codename in ('inspect', 'delete', 'move', 'copy', 'publish',
+                        'unpublish'):
+            return codename
+        return None
+
     def get_list_filter(self, request):
         """
         Returns a sequence containing the fields to be displayed as filters in
