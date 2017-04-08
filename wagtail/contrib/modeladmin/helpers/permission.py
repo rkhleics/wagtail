@@ -88,21 +88,6 @@ class PermissionHelper(object):
         perm_codename = self.get_perm_codename('delete')
         return self.user_has_specific_permission(user, perm_codename)
 
-    @classmethod
-    def has_methods_to_check_for_action(cls, codename):
-        """
-        Returns a boolean indicating whether the class has methods to check
-        user permissions for a given action with codename `codename`. Useful
-        for checking existence of methods before calling
-        `user_has_permission_for_action`.
-        """
-        object_specific_method_name = 'user_can_%s_obj' % codename
-        blanket_method_name = 'user_can_%s' % codename
-        return (
-            hasattr(cls, blanket_method_name) or
-            hasattr(cls, object_specific_method_name)
-        )
-
     def user_has_permission_for_action(self, user, codename, obj):
         """
         Attempts to find a method on `self` to check whether `user` has
@@ -112,18 +97,6 @@ class PermissionHelper(object):
         """
         object_specific_method_name = 'user_can_%s_obj' % codename
         blanket_method_name = 'user_can_%s' % codename
-
-        if not self.has_methods_to_check_for_action(codename):
-            raise ValueError(
-                "'%s' is an invalid permission codename for '%s'. Try adding "
-                "your own '%s' or '%s' methods to allow it to check users "
-                "for the appropriate permissions" % (
-                    codename,
-                    self.__class__.__name__,
-                    object_specific_method_name,
-                    blanket_method_name,
-                )
-            )
 
         if obj and hasattr(self, object_specific_method_name):
             attr = getattr(self, object_specific_method_name)
@@ -150,6 +123,14 @@ class PermissionHelper(object):
                         blanket_method_name, self.__class__.__name__,
                     )
                 )
+
+        return self.no_method_fallback_check(user, codename, obj)
+
+        def no_method_fallback_check(self, user, codename, obj):
+            # Resort to a standard django auth model-wide permission check
+            # for the provided codename
+            perm_codename = self.get_perm_codename(codename)
+            return self.user_has_specific_permission(user, perm_codename)
 
 
 class PagePermissionHelper(PermissionHelper):
@@ -224,3 +205,7 @@ class PagePermissionHelper(PermissionHelper):
     def user_can_copy_obj(self, user, obj):
         parent_page = obj.get_parent()
         return parent_page.permissions_for_user(user).can_publish_subpage()
+
+    def no_method_fallback_check(self, user, codename, obj):
+        # Deny access unless a method is defined to check for a specific action
+        return False
