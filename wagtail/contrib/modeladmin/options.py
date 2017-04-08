@@ -288,7 +288,7 @@ class ModelAdmin(WagtailRegisterable):
 
     def get_button_url_for_action(self, codename, obj):
         """
-        Return a URL to be used as the `href` attribut for buttons with action
+        Return a URL to be used as the `href` attribute for buttons with action
         `codename` for `obj` (an instance of `self.model` or `None`)
         """
         # If a value is defined as a class attribute, return that
