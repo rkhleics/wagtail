@@ -173,8 +173,6 @@ class ModelAdmin(WagtailRegisterable):
         self.model_verbose_name_plural = force_text(self.opts.verbose_name_plural)
         self.is_pagemodel = issubclass(self.model, Page)
         self.parent = parent
-        self.permission_helper = self.get_permission_helper_class()(
-            self.model, self.inspect_view_enabled)
         self.url_helper = self.get_url_helper_class()(self.model)
 
     def get_permission_helper_class(self):
@@ -187,6 +185,11 @@ class ModelAdmin(WagtailRegisterable):
         if self.is_pagemodel:
             return PagePermissionHelper
         return PermissionHelper
+
+    def get_permission_helper_for_user(self, user):
+        return self.get_permission_helper_class()(
+            user, self.model, self.inspect_view_enabled
+        )
 
     def get_url_helper_class(self):
         if self.url_helper_class:
