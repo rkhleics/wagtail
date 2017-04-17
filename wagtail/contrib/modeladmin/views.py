@@ -4,6 +4,7 @@ import operator
 import sys
 from collections import OrderedDict
 from functools import reduce
+import warnings
 
 from django import forms
 from django.contrib.admin import FieldListFilter, widgets
@@ -33,6 +34,7 @@ from django.views.generic import TemplateView
 from django.views.generic.edit import FormView
 
 from wagtail.wagtailadmin import messages
+from wagtail.utils.deprecation import RemovedInWagtail112Warning
 from wagtail.wagtailadmin.edit_handlers import (
     ObjectList, extract_panel_definitions_from_model_class)
 
@@ -54,8 +56,8 @@ class WMABaseView(TemplateView):
         self.opts = self.model._meta
         self.app_label = force_text(self.opts.app_label)
         self.model_name = force_text(self.opts.model_name)
-        self.verbose_name = force_text(self.opts.verbose_name)
-        self.verbose_name_plural = force_text(self.opts.verbose_name_plural)
+        self.model_verbose_name = force_text(self.opts.verbose_name)
+        self.model_verbose_name_plural = force_text(self.opts.verbose_name_plural)
         self.pk_attname = self.opts.pk.attname
         self.is_pagemodel = model_admin.is_pagemodel
         self.permission_helper = model_admin.permission_helper
@@ -72,19 +74,51 @@ class WMABaseView(TemplateView):
         self.button_helper = button_helper_class(self, request)
         return super(WMABaseView, self).dispatch(request, *args, **kwargs)
 
+    @property
+    def verbose_name(self):
+        warnings.warn(
+            "You should use {view_class_name}.model_verbose_name instead of "
+            "{view_class_name}.verbose_name. Or in templates, you can do "
+            "\{\{ model_verbose_name \}\}".format(
+                view_class_name=self.__class__.__name__
+            ), category=RemovedInWagtail112Warning
+        )
+        return self.model_verbose_name
+
+    @property
+    def verbose_name_plural(self):
+        warnings.warn(
+            "You should use {view_class_name}.model_verbose_name_plural "
+            "instead of {view_class_name}.verbose_name_plural. Or in "
+            "templates, you can do \{\{ model_verbose_name_plural \}\}".format(
+                view_class_name=self.__class__.__name__
+            ), category=RemovedInWagtail112Warning
+        )
+        return self.model_verbose_name_plural
+
     @cached_property
     def menu_icon(self):
         return self.model_admin.get_menu_icon()
 
-    @cached_property
+    @property
     def header_icon(self):
-        return self.menu_icon
+        warnings.warn(
+            "You should use {view_class_name}.get_header_icon() instead of "
+            "{view_class_name}.header_icon. Or, in templates, you can do "
+            "{{ header_icon }}".format(
+                view_class_name=self.__class__.__name__
+            ), category=RemovedInWagtail112Warning
+        )
+        return self.model_verbose_name_plural
 
     def get_page_title(self):
-        return self.page_title or capfirst(self.opts.verbose_name_plural)
+        return self.page_title or capfirst(self.model_verbose_name_plural)
 
     def get_meta_title(self):
         return self.meta_title or self.get_page_title()
+
+    def get_header_icon(self):
+        return self.model_admin.get_menu_icon()
 
     @cached_property
     def index_url(self):
@@ -99,7 +133,12 @@ class WMABaseView(TemplateView):
 
     def get_context_data(self, **kwargs):
         context = {
-            'view': self,
+            'meta_title': self.get_meta_title(),
+            'title': self.get_page_title(),
+            'subtitle': self.get_page_subtitle(),
+            'header_icon': self.get_header_icon(),
+            'model_verbose_name': self.model_verbose_name,
+            'model_verbose_name_plural': self.model_verbose_name_plural,
             'model_admin': self.model_admin,
         }
         context.update(kwargs)
