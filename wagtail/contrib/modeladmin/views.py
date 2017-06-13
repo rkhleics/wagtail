@@ -2,6 +2,7 @@ from __future__ import absolute_import, unicode_literals
 
 import operator
 import sys
+import warnings
 from collections import OrderedDict
 from functools import reduce
 
@@ -155,7 +156,7 @@ class ModelFormView(WMABaseView, FormView):
             model_name=capfirst(self.opts.verbose_name), instance=instance)
 
     def get_success_message_buttons(self, instance):
-        button_url = self.url_helper.get_action_url('edit', quote(instance.pk))
+        button_url = self.url_helper.get_action_url_for_obj('edit', instance)
         return [
             messages.button(button_url, _('Edit'))
         ]
@@ -180,29 +181,44 @@ class ModelFormView(WMABaseView, FormView):
 class InstanceSpecificView(WMABaseView):
 
     instance_pk = None
-    pk_quoted = None
     instance = None
 
     def __init__(self, model_admin, instance_pk):
         super(InstanceSpecificView, self).__init__(model_admin)
         self.instance_pk = unquote(instance_pk)
-        self.pk_quoted = quote(self.instance_pk)
+        self._pk_quoted = quote(self.instance_pk)
         filter_kwargs = {}
         filter_kwargs[self.pk_attname] = self.instance_pk
         object_qs = model_admin.model._default_manager.get_queryset().filter(
             **filter_kwargs)
         self.instance = get_object_or_404(object_qs)
 
+    @property
+    def pk_quoted(self):
+        warnings.warn(
+            "The pk_quoted attribute is deprecated",
+            category=DeprecationWarning
+        )
+        return self._pk_quoted
+
+    @pk_quoted.setter
+    def pk_quoted(self, value):
+        warnings.warn(
+            "The pk_quoted attribute is deprecated",
+            category=DeprecationWarning
+        )
+        self._pk_quoted = value
+
     def get_page_subtitle(self):
         return self.instance
 
     @cached_property
     def edit_url(self):
-        return self.url_helper.get_action_url('edit', self.pk_quoted)
+        return self.url_helper.get_action_url_for_obj('edit', self.instance)
 
     @cached_property
     def delete_url(self):
-        return self.url_helper.get_action_url('delete', self.pk_quoted)
+        return self.url_helper.get_action_url_for_obj('delete', self.instance)
 
     def get_context_data(self, **kwargs):
         context = {'instance': self.instance}
@@ -699,7 +715,7 @@ class EditView(ModelFormView, InstanceSpecificView):
     def dispatch(self, request, *args, **kwargs):
         if self.is_pagemodel:
             return redirect(
-                self.url_helper.get_action_url('edit', self.pk_quoted)
+                self.url_helper.get_action_url_for_obj('edit', self.instance)
             )
         return super(EditView, self).dispatch(request, *args, **kwargs)
 
@@ -775,7 +791,7 @@ class DeleteView(InstanceSpecificView):
             raise PermissionDenied
         if self.is_pagemodel:
             return redirect(
-                self.url_helper.get_action_url('delete', self.pk_quoted)
+                self.url_helper.get_action_url_for_obj('delete', self.instance)
             )
         return super(DeleteView, self).dispatch(request, *args, **kwargs)
 
