@@ -96,6 +96,38 @@ class PermissionHelper(object):
     def user_can_copy_obj(self, user, obj):
         return False
 
+    def user_has_permission_for_action(self, user, codename, obj):
+        """
+        Looks for a method on `self` to check whether `user` has sufficient
+        permissions to perform an action, identified by `codename`. `codename`
+        should be an 'action' codename string (e.g. 'edit' or 'delete'), which
+        is used to find a method on the PermissionHelper class that can be
+        called with the relevant arguments.
+
+        If such a method exists, call it and return a boolean indicating
+        the result of the permission check. If no such method exists, call
+        `fallback_permission_check` to do a standard model-wide django
+        permission check.
+        """
+        object_specific_method_name = 'user_can_%s_obj' % codename
+        blanket_method_name = 'user_can_%s' % codename
+
+        if obj and hasattr(self, object_specific_method_name):
+            method = getattr(self, object_specific_method_name)
+            return method(user=user, obj=obj)
+
+        elif hasattr(self, blanket_method_name):
+            method = getattr(self, blanket_method_name)
+            return method(user=user)
+
+        return self.fallback_permission_check(user, codename, obj)
+
+        def fallback_permission_check(self, user, codename, obj):
+            # Resort to a standard django auth model-wide permission check
+            # for the provided codename
+            perm_codename = self.get_perm_codename(codename)
+            return self.user_has_specific_permission(user, perm_codename)
+
 
 class PagePermissionHelper(PermissionHelper):
     """
@@ -165,3 +197,11 @@ class PagePermissionHelper(PermissionHelper):
     def user_can_copy_obj(self, user, obj):
         parent_page = obj.get_parent()
         return parent_page.permissions_for_user(user).can_publish_subpage()
+
+    def fallback_permission_check(self, user, codename, obj):
+        """
+        Model-wide django-auth permission checks aren't applicable to page
+        trees, so we return False if a method hasn't been defined on thise
+        class to determine access for the specified action
+        """
+        return False
