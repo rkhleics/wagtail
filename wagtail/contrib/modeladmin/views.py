@@ -2,7 +2,6 @@ from __future__ import absolute_import, unicode_literals
 
 import operator
 import sys
-import warnings
 from collections import OrderedDict
 from functools import reduce
 
@@ -181,33 +180,18 @@ class ModelFormView(WMABaseView, FormView):
 class InstanceSpecificView(WMABaseView):
 
     instance_pk = None
+    pk_quoted = None
     instance = None
 
     def __init__(self, model_admin, instance_pk):
         super(InstanceSpecificView, self).__init__(model_admin)
         self.instance_pk = unquote(instance_pk)
-        self._pk_quoted = quote(self.instance_pk)
+        self.pk_quoted = quote(self.instance_pk)
         filter_kwargs = {}
         filter_kwargs[self.pk_attname] = self.instance_pk
         object_qs = model_admin.model._default_manager.get_queryset().filter(
             **filter_kwargs)
         self.instance = get_object_or_404(object_qs)
-
-    @property
-    def pk_quoted(self):
-        warnings.warn(
-            "The pk_quoted attribute is deprecated",
-            category=DeprecationWarning
-        )
-        return self._pk_quoted
-
-    @pk_quoted.setter
-    def pk_quoted(self, value):
-        warnings.warn(
-            "The pk_quoted attribute is deprecated",
-            category=DeprecationWarning
-        )
-        self._pk_quoted = value
 
     def get_page_subtitle(self):
         return self.instance
