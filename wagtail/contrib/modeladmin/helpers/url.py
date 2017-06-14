@@ -55,6 +55,7 @@ class AdminURLHelper(object):
 class PageAdminURLHelper(AdminURLHelper):
 
     def get_action_url(self, action, *args, **kwargs):
+        if action in ('add', 'edit', 'delete', 'unpublish', 'copy'):
             url_name = 'wagtailadmin_pages:%s' % action
             target_url = reverse(url_name, args=args, kwargs=kwargs)
             return '%s?next=%s' % (target_url, urlquote(self.index_url))
