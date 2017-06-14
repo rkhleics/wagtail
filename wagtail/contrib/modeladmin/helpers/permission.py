@@ -11,6 +11,11 @@ from wagtail.wagtailcore.models import Page, UserPagePermissionsProxy
 
 class BasePermissionHelper(object):
 
+    def __init__(self, model, inspect_view_enabled=False):
+        self.model = model
+        self.opts = model._meta
+        self.inspect_view_enabled = inspect_view_enabled
+
     def user_has_permission_for_action(self, user, codename, obj=None):
         """
         Looks for a method on `self` to check whether `user` has sufficient
@@ -39,8 +44,8 @@ class BasePermissionHelper(object):
         perform a specific action (indicated by `codename`) using whatever
         permission model is appropriate for the model."""
         raise NotImplementedError(
-            "Subclasses of BasePermissionHelper must define their own "
-            "'generic_permission_check' implementation"
+            "Subclasses of BasePermissionHelper must implement their own "
+            "'generic_permission_check' method"
         )
 
     def user_can_create(self, user):
@@ -49,14 +54,6 @@ class BasePermissionHelper(object):
         instances of `self.model`
         """
         return self.generic_permission_check(user, 'create')
-
-    def user_can_inspect_obj(self, user, obj):
-        """
-        Return a boolean to indicate whether `user` is permitted to 'inspect'
-        a specific `self.model` instance.
-        """
-        return self.inspect_view_enabled and self.user_has_any_permissions(
-            user)
 
     def user_can_edit_obj(self, user, obj):
         """
@@ -86,6 +83,19 @@ class BasePermissionHelper(object):
         """
         return self.generic_permission_check(user, 'copy', obj)
 
+    def user_can_inspect_obj(self, user, obj):
+        """
+        Return a boolean to indicate whether `user` is permitted to 'inspect'
+        a specific `self.model` instance.
+        """
+        return self.inspect_view_enabled and self.user_can_list(user)
+
+    def user_can_list(self, user):
+        raise NotImplementedError(
+            "Subclasses of BasePermissionHelper must implement their own "
+            "'user_can_list' method"
+        )
+
 
 class PermissionHelper(BasePermissionHelper):
     """
@@ -93,11 +103,6 @@ class PermissionHelper(BasePermissionHelper):
     user can do with a 'typical' model (where permissions are granted
     model-wide), and to a specific instance of that model.
     """
-
-    def __init__(self, model, inspect_view_enabled=False):
-        self.model = model
-        self.opts = model._meta
-        self.inspect_view_enabled = inspect_view_enabled
 
     def generic_permission_check(self, user, codename, obj=None):
         """Returns a boolean indicating whether `user` has permission to
