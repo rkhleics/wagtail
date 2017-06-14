@@ -38,7 +38,6 @@ class PermissionHelper(object):
         Combine `perm_codename` with `self.opts.app_label` to call the provided
         Django user's built-in `has_perm` method.
         """
-
         return user.has_perm("%s.%s" % (self.opts.app_label, perm_codename))
 
     def user_has_any_permissions(self, user):
@@ -96,7 +95,7 @@ class PermissionHelper(object):
     def user_can_copy_obj(self, user, obj):
         return False
 
-    def user_has_permission_for_action(self, user, codename, obj):
+    def user_has_permission_for_action(self, user, codename, obj=None):
         """
         Looks for a method on `self` to check whether `user` has sufficient
         permissions to perform an action, identified by `codename`. `codename`
