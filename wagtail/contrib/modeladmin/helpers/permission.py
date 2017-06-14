@@ -1,5 +1,7 @@
 from __future__ import absolute_import, unicode_literals
 
+import warnings
+
 from django.contrib.auth import get_permission_codename
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
@@ -7,7 +9,85 @@ from django.contrib.contenttypes.models import ContentType
 from wagtail.wagtailcore.models import Page, UserPagePermissionsProxy
 
 
-class PermissionHelper(object):
+class BasePermissionHelper(object):
+
+    def user_has_permission_for_action(self, user, codename, obj=None):
+        """
+        Looks for a method on `self` to check whether `user` has sufficient
+        permissions to perform an action (identified by `codename`). `codename`
+        should be an 'action' codename string (e.g. 'edit' or 'delete')
+
+        If such a method exists, call it and return a boolean indicating
+        the result. If no such method exists, defer checking to
+        `generic_permission_check`.
+        """
+        object_specific_method_name = 'user_can_%s_obj' % codename
+        blanket_method_name = 'user_can_%s' % codename
+
+        if obj and hasattr(self, object_specific_method_name):
+            method = getattr(self, object_specific_method_name)
+            return method(user=user, obj=obj)
+
+        elif hasattr(self, blanket_method_name):
+            method = getattr(self, blanket_method_name)
+            return method(user=user)
+
+        return self.generic_permission_check(user, codename, obj)
+
+    def generic_permission_check(self, user, codename, obj=None):
+        """Returns a boolean indicating whether `user` has permission to
+        perform a specific action (indicated by `codename`) using whatever
+        permission model is appropriate for the model."""
+        raise NotImplementedError(
+            "Subclasses of BasePermissionHelper must define their own "
+            "'generic_permission_check' implementation"
+        )
+
+    def user_can_create(self, user):
+        """
+        Return a boolean to indicate whether `user` is permitted to create new
+        instances of `self.model`
+        """
+        return self.generic_permission_check(user, 'create')
+
+    def user_can_inspect_obj(self, user, obj):
+        """
+        Return a boolean to indicate whether `user` is permitted to 'inspect'
+        a specific `self.model` instance.
+        """
+        return self.inspect_view_enabled and self.user_has_any_permissions(
+            user)
+
+    def user_can_edit_obj(self, user, obj):
+        """
+        Return a boolean to indicate whether `user` is permitted to 'edit'
+        a specific `self.model` instance.
+        """
+        return self.generic_permission_check(user, 'edit', obj)
+
+    def user_can_delete_obj(self, user, obj):
+        """
+        Return a boolean to indicate whether `user` is permitted to 'delete'
+        a specific `self.model` instance.
+        """
+        return self.generic_permission_check(user, 'delete', obj)
+
+    def user_can_unpublish_obj(self, user, obj):
+        """
+        Return a boolean to indicate whether `user` is permitted to 'unpublish'
+        a specific `self.model` instance.
+        """
+        return self.generic_permission_check(user, 'unpublish', obj)
+
+    def user_can_copy_obj(self, user, obj):
+        """
+        Return a boolean to indicate whether `user` is permitted to 'copy'
+        a specific `self.model` instance.
+        """
+        return self.generic_permission_check(user, 'copy', obj)
+
+
+class PermissionHelper(BasePermissionHelper):
     """
     Provides permission-related helper functions to help determine what a
     user can do with a 'typical' model (where permissions are granted
@@ -18,6 +98,22 @@ class PermissionHelper(object):
         self.model = model
         self.opts = model._meta
         self.inspect_view_enabled = inspect_view_enabled
+
+    def generic_permission_check(self, user, codename, obj=None):
+        """Returns a boolean indicating whether `user` has permission to
+        perform a specific action (indicated by `codename`) by querying
+        Django auth's model-wide permission system. Raises a warning
+        if the supplied `codename` doesn't match up to an existing Permission.
+        """
+        perm_codename = self.get_perm_codename(codename)
+        try:
+            return self.user_has_specific_permission(user, perm_codename)
+        except Permission.DoesNotExist:
+            warnings.warn(
+                "No Permission with codename '%s' exists for '%s'" %
+                (perm_codename, self.opts.label)
+            )
+        return False
 
     def get_all_model_permissions(self):
         """
@@ -31,7 +127,13 @@ class PermissionHelper(object):
         )
 
     def get_perm_codename(self, action):
-        return get_permission_codename(action, self.opts)
+        if action == 'edit':
+            codename = 'change'
+        elif action == 'create':
+            codename = 'add'
+        else:
+            codename = action
+        return get_permission_codename(codename, self.opts)
 
     def user_has_specific_permission(self, user, perm_codename):
         """
@@ -57,78 +159,8 @@ class PermissionHelper(object):
         """
         return self.user_has_any_permissions(user)
 
-    def user_can_create(self, user):
-        """
-        Return a boolean to indicate whether `user` is permitted to create new
-        instances of `self.model`
-        """
-        perm_codename = self.get_perm_codename('add')
-        return self.user_has_specific_permission(user, perm_codename)
 
-    def user_can_inspect_obj(self, user, obj):
-        """
-        Return a boolean to indicate whether `user` is permitted to 'inspect'
-        a specific `self.model` instance.
-        """
-        return self.inspect_view_enabled and self.user_has_any_permissions(
-            user)
-
-    def user_can_edit_obj(self, user, obj):
-        """
-        Return a boolean to indicate whether `user` is permitted to 'change'
-        a specific `self.model` instance.
-        """
-        perm_codename = self.get_perm_codename('change')
-        return self.user_has_specific_permission(user, perm_codename)
-
-    def user_can_delete_obj(self, user, obj):
-        """
-        Return a boolean to indicate whether `user` is permitted to 'delete'
-        a specific `self.model` instance.
-        """
-        perm_codename = self.get_perm_codename('delete')
-        return self.user_has_specific_permission(user, perm_codename)
-
-    def user_can_unpublish_obj(self, user, obj):
-        return False
-
-    def user_can_copy_obj(self, user, obj):
-        return False
-
-    def user_has_permission_for_action(self, user, codename, obj=None):
-        """
-        Looks for a method on `self` to check whether `user` has sufficient
-        permissions to perform an action, identified by `codename`. `codename`
-        should be an 'action' codename string (e.g. 'edit' or 'delete'), which
-        is used to find a method on the PermissionHelper class that can be
-        called with the relevant arguments.
-
-        If such a method exists, call it and return a boolean indicating
-        the result of the permission check. If no such method exists, call
-        `fallback_permission_check` to do a standard model-wide django
-        permission check.
-        """
-        object_specific_method_name = 'user_can_%s_obj' % codename
-        blanket_method_name = 'user_can_%s' % codename
-
-        if obj and hasattr(self, object_specific_method_name):
-            method = getattr(self, object_specific_method_name)
-            return method(user=user, obj=obj)
-
-        elif hasattr(self, blanket_method_name):
-            method = getattr(self, blanket_method_name)
-            return method(user=user)
-
-        return self.fallback_permission_check(user, codename, obj)
-
-    def fallback_permission_check(self, user, codename, obj):
-        # Resort to a standard django auth model-wide permission check
-        # for the provided codename
-        perm_codename = self.get_perm_codename(codename)
-        return self.user_has_specific_permission(user, perm_codename)
-
-
-class PagePermissionHelper(PermissionHelper):
+class PagePermissionHelper(BasePermissionHelper):
     """
     Provides permission-related helper functions to help determine what
     a user can do with a model extending Wagtail's Page model. It differs
@@ -136,6 +168,31 @@ class PagePermissionHelper(PermissionHelper):
     relevant. We generally need to determine permissions on an
     object-specific basis.
     """
+    def generic_permission_check(self, user, codename, obj=None):
+        """Returns a boolean indicating whether `user` has permission to
+        perform a specific action (indicated by `codename`) by querying the
+        `UserPagePermissionsProxy` object returned by a page's
+        `permissions_for_user` method. Raises a warning if the supplied
+        `codename` cannot be matched to the name of an attribute on the
+        `UserPagePermissionsProxy` object.
+        """
+        if obj:
+            perms = obj.permissions_for_user(user)
+            attr_name = 'can_%s' % codename
+            if hasattr(perms, attr_name):
+                attr = getattr(perms, attr_name)
+                if not callable(attr):
+                    return attr
+                try:
+                    return attr()
+                except TypeError:
+                    pass
+            else:
+                warnings.warn(
+                    "The '%s' class has no attribute or method matching '%s'" %
+                    (type(perms).__name__, attr_name)
+                )
+        return False
 
     def get_valid_parent_pages(self, user):
         """
@@ -181,26 +238,6 @@ class PagePermissionHelper(PermissionHelper):
         """
         return self.get_valid_parent_pages(user).exists()
 
-    def user_can_edit_obj(self, user, obj):
-        perms = obj.permissions_for_user(user)
-        return perms.can_edit()
-
-    def user_can_delete_obj(self, user, obj):
-        perms = obj.permissions_for_user(user)
-        return perms.can_delete()
-
-    def user_can_publish_obj(self, user, obj):
-        perms = obj.permissions_for_user(user)
-        return obj.live and perms.can_unpublish()
-
     def user_can_copy_obj(self, user, obj):
         parent_page = obj.get_parent()
         return parent_page.permissions_for_user(user).can_publish_subpage()
-
-    def fallback_permission_check(self, user, codename, obj):
-        """
-        Model-wide django-auth permission checks aren't applicable to page
-        trees, so we return False if a method hasn't been defined on thise
-        class to determine access for the specified action
-        """
-        return False
