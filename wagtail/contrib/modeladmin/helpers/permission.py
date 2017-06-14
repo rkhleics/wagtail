@@ -121,11 +121,11 @@ class PermissionHelper(object):
 
         return self.fallback_permission_check(user, codename, obj)
 
-        def fallback_permission_check(self, user, codename, obj):
-            # Resort to a standard django auth model-wide permission check
-            # for the provided codename
-            perm_codename = self.get_perm_codename(codename)
-            return self.user_has_specific_permission(user, perm_codename)
+    def fallback_permission_check(self, user, codename, obj):
+        # Resort to a standard django auth model-wide permission check
+        # for the provided codename
+        perm_codename = self.get_perm_codename(codename)
+        return self.user_has_specific_permission(user, perm_codename)
 
 
 class PagePermissionHelper(PermissionHelper):
