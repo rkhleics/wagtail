@@ -41,8 +41,7 @@ class BasePermissionHelper(object):
 
     def do_permission_check(self, user, codename, obj=None):
         """Returns a boolean indicating whether `user` has permission to
-        perform a specific action (indicated by `codename`) using whatever
-        permission model is appropriate for the model."""
+        perform a specific action (indicated by `codename`)"""
         raise NotImplementedError(
             "Subclasses of BasePermissionHelper must implement their own "
             "'do_permission_check' method"
@@ -50,49 +49,49 @@ class BasePermissionHelper(object):
 
     def user_can_create(self, user):
         """
-        Return a boolean to indicate whether `user` is permitted to create new
+        Returns a boolean to indicate whether `user` is permitted to create new
         instances of `self.model`
         """
         return self.do_permission_check(user, 'create')
 
     def user_can_edit_obj(self, user, obj):
         """
-        Return a boolean to indicate whether `user` is permitted to 'edit'
+        Returns a boolean to indicate whether `user` is permitted to 'edit'
         a specific `self.model` instance.
         """
         return self.do_permission_check(user, 'edit', obj)
 
     def user_can_delete_obj(self, user, obj):
         """
-        Return a boolean to indicate whether `user` is permitted to 'delete'
+        Returns a boolean to indicate whether `user` is permitted to 'delete'
         a specific `self.model` instance.
         """
         return self.do_permission_check(user, 'delete', obj)
 
     def user_can_unpublish_obj(self, user, obj):
         """
-        Return a boolean to indicate whether `user` is permitted to 'unpublish'
+        Returns a boolean to indicate whether `user` is permitted to 'unpublish'
         a specific `self.model` instance.
         """
         return self.do_permission_check(user, 'unpublish', obj)
 
     def user_can_publish_obj(self, user, obj):
         """
-        Return a boolean to indicate whether `user` is permitted to 'publish'
+        Returns a boolean to indicate whether `user` is permitted to 'publish'
         a specific `self.model` instance.
         """
         return self.do_permission_check(user, 'publish', obj)
 
     def user_can_copy_obj(self, user, obj):
         """
-        Return a boolean to indicate whether `user` is permitted to 'copy'
+        Returns a boolean to indicate whether `user` is permitted to 'copy'
         a specific `self.model` instance.
         """
         return self.do_permission_check(user, 'copy', obj)
 
     def user_can_list(self, user):
         """
-        Return a boolean to indicate whether `user` is permitted to 'list'
+        Returns a boolean to indicate whether `user` is permitted to 'list'
         any instances on `self.model`.
         """
         raise NotImplementedError(
@@ -102,7 +101,7 @@ class BasePermissionHelper(object):
 
     def user_can_inspect_obj(self, user, obj):
         """
-        Return a boolean to indicate whether `user` is permitted to 'inspect'
+        Returns a boolean to indicate whether `user` is permitted to 'inspect'
         a specific `self.model` instance.
         """
         return self.inspect_view_enabled and self.user_can_list(user)
@@ -192,8 +191,8 @@ class PagePermissionHelper(BasePermissionHelper):
         perform a specific action (indicated by `codename`) by querying
         the `UserPagePermissionsProxy` object returned by a page's
         `permissions_for_user` method. Raises a warning if the supplied
-        `codename` cannot be matched to the name of an attribute on the
-        `UserPagePermissionsProxy` object.
+        `codename` cannot be matched to the name of a method or attribute on
+        `UserPagePermissionsProxy`.
         """
         if obj:
             perms = obj.permissions_for_user(user)
@@ -208,8 +207,8 @@ class PagePermissionHelper(BasePermissionHelper):
                     pass
             else:
                 warnings.warn(
-                    "The '%s' class has no attribute or method to check for "
-                    "action '%s'" % (type(perms).__name__, codename)
+                    "%s has no attribute or method to check for '%s' "
+                    "permission" % (type(perms).__name__, codename)
                 )
         return False
 
