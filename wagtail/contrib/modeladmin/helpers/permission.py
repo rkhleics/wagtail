@@ -37,15 +37,15 @@ class BasePermissionHelper(object):
             method = getattr(self, blanket_method_name)
             return method(user=user)
 
-        return self.generic_permission_check(user, codename, obj)
+        return self.do_permission_check(user, codename, obj)
 
-    def generic_permission_check(self, user, codename, obj=None):
+    def do_permission_check(self, user, codename, obj=None):
         """Returns a boolean indicating whether `user` has permission to
         perform a specific action (indicated by `codename`) using whatever
         permission model is appropriate for the model."""
         raise NotImplementedError(
             "Subclasses of BasePermissionHelper must implement their own "
-            "'generic_permission_check' method"
+            "'do_permission_check' method"
         )
 
     def user_can_create(self, user):
@@ -53,35 +53,52 @@ class BasePermissionHelper(object):
         Return a boolean to indicate whether `user` is permitted to create new
         instances of `self.model`
         """
-        return self.generic_permission_check(user, 'create')
+        return self.do_permission_check(user, 'create')
 
     def user_can_edit_obj(self, user, obj):
         """
         Return a boolean to indicate whether `user` is permitted to 'edit'
         a specific `self.model` instance.
         """
-        return self.generic_permission_check(user, 'edit', obj)
+        return self.do_permission_check(user, 'edit', obj)
 
     def user_can_delete_obj(self, user, obj):
         """
         Return a boolean to indicate whether `user` is permitted to 'delete'
         a specific `self.model` instance.
         """
-        return self.generic_permission_check(user, 'delete', obj)
+        return self.do_permission_check(user, 'delete', obj)
 
     def user_can_unpublish_obj(self, user, obj):
         """
         Return a boolean to indicate whether `user` is permitted to 'unpublish'
         a specific `self.model` instance.
         """
-        return self.generic_permission_check(user, 'unpublish', obj)
+        return self.do_permission_check(user, 'unpublish', obj)
+
+    def user_can_publish_obj(self, user, obj):
+        """
+        Return a boolean to indicate whether `user` is permitted to 'publish'
+        a specific `self.model` instance.
+        """
+        return self.do_permission_check(user, 'publish', obj)
 
     def user_can_copy_obj(self, user, obj):
         """
         Return a boolean to indicate whether `user` is permitted to 'copy'
         a specific `self.model` instance.
         """
-        return self.generic_permission_check(user, 'copy', obj)
+        return self.do_permission_check(user, 'copy', obj)
+
+    def user_can_list(self, user):
+        """
+        Return a boolean to indicate whether `user` is permitted to 'list'
+        any instances on `self.model`.
+        """
+        raise NotImplementedError(
+            "Subclasses of BasePermissionHelper must implement their own "
+            "'user_can_list' method"
+        )
 
     def user_can_inspect_obj(self, user, obj):
         """
@@ -90,12 +107,6 @@ class BasePermissionHelper(object):
         """
         return self.inspect_view_enabled and self.user_can_list(user)
 
-    def user_can_list(self, user):
-        raise NotImplementedError(
-            "Subclasses of BasePermissionHelper must implement their own "
-            "'user_can_list' method"
-        )
-
 
 class PermissionHelper(BasePermissionHelper):
     """
@@ -103,42 +114,28 @@ class PermissionHelper(BasePermissionHelper):
     user can do with a 'typical' model (where permissions are granted
     model-wide), and to a specific instance of that model.
     """
-
-    def generic_permission_check(self, user, codename, obj=None):
-        """Returns a boolean indicating whether `user` has permission to
-        perform a specific action (indicated by `codename`) by querying
-        Django auth's model-wide permission system. Raises a warning
-        if the supplied `codename` doesn't match up to an existing Permission.
-        """
-        perm_codename = self.get_perm_codename(codename)
-        try:
-            return self.user_has_specific_permission(user, perm_codename)
-        except Permission.DoesNotExist:
-            warnings.warn(
-                "No Permission with codename '%s' exists for '%s'" %
-                (perm_codename, self.opts.label)
-            )
-        return False
-
     def get_all_model_permissions(self):
         """
         Return a queryset of all Permission objects pertaining to the `model`
         specified at initialisation.
         """
-
         return Permission.objects.filter(
             content_type__app_label=self.opts.app_label,
             content_type__model=self.opts.model_name,
         )
 
-    def get_perm_codename(self, action):
-        if action == 'edit':
-            codename = 'change'
-        elif action == 'create':
-            codename = 'add'
+    def get_perm_codename(self, codename):
+        """Takes a modeladmin 'action codename' and returns a
+        'permission codename' that can be used to query Django auth's
+        permission system for the relevant permission.
+        """
+        if codename == 'edit':
+            term = 'change'
+        elif codename == 'create':
+            term = 'add'
         else:
-            codename = action
-        return get_permission_codename(codename, self.opts)
+            term = codename
+        return get_permission_codename(term, self.opts)
 
     def user_has_specific_permission(self, user, perm_codename):
         """
@@ -146,6 +143,23 @@ class PermissionHelper(BasePermissionHelper):
         Django user's built-in `has_perm` method.
         """
         return user.has_perm("%s.%s" % (self.opts.app_label, perm_codename))
+
+    def do_permission_check(self, user, codename, obj=None):
+        """Returns a boolean indicating whether `user` has permission to
+        perform a specific action (indicated by `codename`) by querying
+        Django auth's model-wide permission system. Raises a warning
+        if the supplied `codename` doesn't match up to an existing
+        Permission.
+        """
+        perm_codename = self.get_perm_codename(codename)
+        try:
+            return self.user_has_specific_permission(user, perm_codename)
+        except Permission.DoesNotExist:
+            warnings.warn(
+                "No Permission could be found matching action codename "
+                "'%s' for model '%s'" % (codename, self.opts.label)
+            )
+        return False
 
     def user_has_any_permissions(self, user):
         """
@@ -173,10 +187,10 @@ class PagePermissionHelper(BasePermissionHelper):
     relevant. We generally need to determine permissions on an
     object-specific basis.
     """
-    def generic_permission_check(self, user, codename, obj=None):
+    def do_permission_check(self, user, codename, obj=None):
         """Returns a boolean indicating whether `user` has permission to
-        perform a specific action (indicated by `codename`) by querying the
-        `UserPagePermissionsProxy` object returned by a page's
+        perform a specific action (indicated by `codename`) by querying
+        the `UserPagePermissionsProxy` object returned by a page's
         `permissions_for_user` method. Raises a warning if the supplied
         `codename` cannot be matched to the name of an attribute on the
         `UserPagePermissionsProxy` object.
@@ -194,8 +208,8 @@ class PagePermissionHelper(BasePermissionHelper):
                     pass
             else:
                 warnings.warn(
-                    "The '%s' class has no attribute or method matching '%s'" %
-                    (type(perms).__name__, attr_name)
+                    "The '%s' class has no attribute or method to check for "
+                    "action '%s'" % (type(perms).__name__, codename)
                 )
         return False
 
@@ -246,3 +260,35 @@ class PagePermissionHelper(BasePermissionHelper):
     def user_can_copy_obj(self, user, obj):
         parent_page = obj.get_parent()
         return parent_page.permissions_for_user(user).can_publish_subpage()
+
+    def get_all_model_permissions(self):
+        warnings.warn(
+            "The 'get_all_model_permissions' method is deprecated for "
+            "PagePermissionHelper", DeprecationWarning
+        )
+        helper = PermissionHelper(self.model, self.inspect_view_enabled)
+        return helper.get_all_model_permissions()
+
+    def get_perm_codename(self, action):
+        warnings.warn(
+            "The 'get_perm_codename' method is deprecated for "
+            "PagePermissionHelper", DeprecationWarning
+        )
+        helper = PermissionHelper(self.model, self.inspect_view_enabled)
+        return helper.get_perm_codename(action)
+
+    def user_has_any_permissions(self, user):
+        warnings.warn(
+            "The 'user_has_any_permissions' method is deprecated for "
+            "PagePermissionHelper", DeprecationWarning
+        )
+        helper = PermissionHelper(self.model, self.inspect_view_enabled)
+        return helper.user_has_any_permissions(user)
+
+    def user_has_specific_permission(self, user, perm_codename):
+        warnings.warn(
+            "The 'user_has_specific_permission' method is deprecated for "
+            "PagePermissionHelper", DeprecationWarning
+        )
+        helper = PermissionHelper(self.model, self.inspect_view_enabled)
+        return helper.user_has_specific_permission(user, perm_codename)
