@@ -51,46 +51,56 @@ class TestPermissionHelper(UsersMixin, TestCase, WagtailTestUtils):
 
     def test_user_can_create_images(self):
         self.assertTrue(
-            self.helper.user_has_permission_for_action(self.create_test_user(), 'create')
+            self.helper.user_can(self.create_test_user(), 'create')
         )
         self.assertTrue(
-            self.helper.user_has_permission_for_action(self.get_moderator(), 'create')
+            self.helper.user_can(self.get_moderator(), 'create')
         )
         self.assertTrue(
-            self.helper.user_has_permission_for_action(self.get_editor(), 'create')
+            self.helper.user_can(self.get_editor(), 'create')
         )
         self.assertFalse(
-            self.helper.user_has_permission_for_action(self.get_non_editor(), 'create')
+            self.helper.user_can(self.get_non_editor(), 'create')
         )
 
     def test_user_can_edit_an_image(self):
         image_obj = Image.objects.get(id=1)
         self.assertTrue(
-            self.helper.user_has_permission_for_action(self.create_test_user(), 'edit', obj=image_obj)
+            self.helper.user_can(self.create_test_user(), 'edit', obj=image_obj)
         )
         self.assertTrue(
-            self.helper.user_has_permission_for_action(self.get_moderator(), 'edit', obj=image_obj)
+            self.helper.user_can(self.get_moderator(), 'edit', obj=image_obj)
         )
         self.assertTrue(
-            self.helper.user_has_permission_for_action(self.get_editor(), 'edit', obj=image_obj)
+            self.helper.user_can(self.get_editor(), 'edit', obj=image_obj)
         )
         self.assertFalse(
-            self.helper.user_has_permission_for_action(self.get_non_editor(), 'edit', obj=image_obj)
+            self.helper.user_can(self.get_non_editor(), 'edit', obj=image_obj)
         )
 
     def test_user_can_exterminate_images(self):
+        # If a permission exists, a superuser will automatically have it
         self.assertTrue(
-            self.helper.user_has_permission_for_action(self.create_test_user(), 'exterminate')
+            self.helper.user_can(self.create_test_user(), 'exterminate')
         )
+        # A custom 'exterminate' permission has be created and assigned to the
+        # moderator group, so a moderator should be able to 'exterminate' an
+        # Image
         self.assertTrue(
-            self.helper.user_has_permission_for_action(self.get_moderator(), 'exterminate')
+            self.helper.user_can(self.get_moderator(), 'exterminate')
         )
         self.assertFalse(
-            self.helper.user_has_permission_for_action(self.get_editor(), 'exterminate')
+            self.helper.user_can(self.get_editor(), 'exterminate')
         )
         self.assertFalse(
-            self.helper.user_has_permission_for_action(self.get_non_editor(), 'exterminate')
+            self.helper.user_can(self.get_non_editor(), 'exterminate')
         )
+
+    def test_user_can_transmogrify_images(self):
+        # No 'transmogrify' permission exists, so checking this should return
+        # False (and raise a warning)
+        user = self.create_test_user()
+        self.assertFalse(self.helper.user_can(user, 'transmogrify'))
 
 
 class TestPagePermissionHelper(UsersMixin, TestCase, WagtailTestUtils):
@@ -102,29 +112,43 @@ class TestPagePermissionHelper(UsersMixin, TestCase, WagtailTestUtils):
 
     def test_user_can_create_eventpages(self):
         self.assertTrue(
-            self.helper.user_has_permission_for_action(self.create_test_user(), 'create')
+            self.helper.user_can(self.create_test_user(), 'create')
         )
         self.assertTrue(
-            self.helper.user_has_permission_for_action(self.get_moderator(), 'create')
+            self.helper.user_can(self.get_moderator(), 'create')
         )
+        # Editors shouldn't be able to create an EventPage
         self.assertFalse(
-            self.helper.user_has_permission_for_action(self.get_editor(), 'create')
+            self.helper.user_can(self.get_editor(), 'create')
         )
+        # Users with no page-related permissions at all certainly shouldn't
         self.assertFalse(
-            self.helper.user_has_permission_for_action(self.get_non_editor(), 'create')
+            self.helper.user_can(self.get_non_editor(), 'create')
         )
 
     def test_user_can_delete_an_eventpage(self):
         christmas = EventPage.objects.get(id=4)
         self.assertTrue(
-            self.helper.user_has_permission_for_action(self.create_test_user(), 'delete', obj=christmas)
+            self.helper.user_can(self.create_test_user(), 'delete', obj=christmas)
         )
         self.assertTrue(
-            self.helper.user_has_permission_for_action(self.get_moderator(), 'delete', obj=christmas)
+            self.helper.user_can(self.get_moderator(), 'delete', obj=christmas)
         )
+        # Editors shouldn't be able to delete an EventPage
         self.assertFalse(
-            self.helper.user_has_permission_for_action(self.get_editor(), 'delete', obj=christmas)
+            self.helper.user_can(self.get_editor(), 'delete', obj=christmas)
         )
+        # Users with no page-related permissions at all certainly shouldn't
         self.assertFalse(
-            self.helper.user_has_permission_for_action(self.get_non_editor(), 'delete', obj=christmas)
+            self.helper.user_can(self.get_non_editor(), 'delete', obj=christmas)
         )
+
+    def test_user_can_transmogrify_an_eventpage(self):
+        user = self.create_test_user()
+        christmas = EventPage.objects.get(id=4)
+        self.assertFalse(self.helper.user_can(user, 'transmogrify', christmas))
+
+    def test_user_can_move_to_an_eventpage(self):
+        user = self.create_test_user()
+        christmas = EventPage.objects.get(id=4)
+        self.assertFalse(self.helper.user_can(user, 'move_to', christmas))
