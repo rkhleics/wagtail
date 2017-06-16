@@ -21,8 +21,8 @@ class BasePermissionHelper(object):
         permissions to perform the action `codename` (e.g. 'create', 'edit',
         'publish', 'delete') and returns it's result.
 
-        Prefers specifically named methods for the deciding on the action
-        (e.g. 'user_can_action' , 'user_can_action_obj'), but will fall back to
+        Prefers specifically named methods (e.g. 'user_can_action' ,
+        'user_can_action_obj'), but will fall back to
         `do_generic_permission_check` if no such method is found."""
 
         object_specific_method_name = 'user_can_%s_obj' % codename
@@ -185,6 +185,7 @@ class PagePermissionHelper(BasePermissionHelper):
     relevant. We generally need to determine permissions on an
     object-specific basis.
     """
+
     def do_generic_permission_check(self, user, codename, obj=None):
         """If `obj` isn't supplied, return `False`, because model-wide
         permissions don't apply to pages. If `obj` is supplied, query the
@@ -193,8 +194,12 @@ class PagePermissionHelper(BasePermissionHelper):
         name of a method or attribute, or the method takes additional arguments
         """
         if not obj:
+            # We currently don't make model-wide permission checks for page
+            # type models
             return False
+
         perms = obj.permissions_for_user(user)
+        # Attempt to find a method / attribute with a relevant name
         attr_name = 'can_%s' % codename
         if hasattr(perms, attr_name):
             attr = getattr(perms, attr_name)
