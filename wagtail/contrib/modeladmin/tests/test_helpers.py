@@ -96,7 +96,7 @@ class TestPermissionHelper(UsersMixin, TestCase, WagtailTestUtils):
             self.helper.user_can(self.get_non_editor(), 'exterminate')
         )
 
-    def test_user_can_transmogrify_images(self):
+    def test_user_cannot_transmogrify_images(self):
         # No 'transmogrify' permission exists, so checking this should return
         # False (and raise a warning)
         user = self.create_test_user()
@@ -143,12 +143,12 @@ class TestPagePermissionHelper(UsersMixin, TestCase, WagtailTestUtils):
             self.helper.user_can(self.get_non_editor(), 'delete', obj=christmas)
         )
 
-    def test_user_can_transmogrify_an_eventpage(self):
+    def test_user_cannot_transmogrify_an_eventpage(self):
         user = self.create_test_user()
         christmas = EventPage.objects.get(id=4)
         self.assertFalse(self.helper.user_can(user, 'transmogrify', christmas))
 
-    def test_user_can_move_to_an_eventpage(self):
+    def test_user_cannot_move_to_an_eventpage(self):
         user = self.create_test_user()
         christmas = EventPage.objects.get(id=4)
         self.assertFalse(self.helper.user_can(user, 'move_to', christmas))
