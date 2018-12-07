@@ -24,8 +24,8 @@ class PermissionHelper:
         initialisation.
 
         For proxy models, if a ``ContentType`` has been created manually, that
-        will be returned. If not, the ``ContentType`` for the 'concrete' model
-        will be returned.
+        will be returned. If not, the ``ContentType`` for the relevant
+        'concrete' model will be returned instead.
         """
         if self.opts.proxy:
             try:
