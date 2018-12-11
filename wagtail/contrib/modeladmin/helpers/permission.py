@@ -21,17 +21,9 @@ class PermissionHelper:
     def content_type(self):
         """
         Return a ``ContentType`` object for the ``model`` specified at
-        initialisation.
-
-        For proxy models, if a ``ContentType`` has been created manually, that
-        will be returned. If not, the ``ContentType`` for the relevant
-        'concrete' model will be returned instead.
+        initialisation. For proxy models, the ``ContentType`` for the concrete
+        model will be returned.
         """
-        if self.opts.proxy:
-            try:
-                return ContentType.objects.get_by_natural_key(self.opts.app_label, self.opts.model_name)
-            except ContentType.DoesNotExist:
-                return ContentType.objects.get_for_model(self.model, for_concrete_model=True)
         return ContentType.objects.get_for_model(self.model)
 
     def get_all_model_permissions(self):
