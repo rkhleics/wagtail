@@ -1,9 +1,12 @@
 import logging
 
+import django
 from django.core.cache import cache
-from django.db.models.signals import post_delete, post_save, pre_delete
+from django.db.models.signals import post_delete, post_save, pre_delete, post_migrate
 
 from wagtail.core.models import Page, Site
+from wagtail.core.contenttypes import fix_proxy_model_permissions
+
 
 logger = logging.getLogger('wagtail.core')
 
@@ -34,3 +37,6 @@ def register_signal_handlers():
 
     pre_delete.connect(pre_delete_page_unpublish, sender=Page)
     post_delete.connect(post_delete_page_log_deletion, sender=Page)
+
+    if django.VERSION < (2, 2):
+        post_migrate.connect(fix_proxy_model_permissions)
