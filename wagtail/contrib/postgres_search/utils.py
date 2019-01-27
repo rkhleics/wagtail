@@ -31,7 +31,7 @@ def get_descendant_models(model):
 def get_content_type_pk(model):
     # We import it locally because this file is loaded before apps are ready.
     from django.contrib.contenttypes.models import ContentType
-    return ContentType.objects.get_for_model(model).pk
+    return ContentType.objects.get_for_model(model, for_concrete_model=False).pk
 
 
 def get_ancestors_content_types_pks(model):
@@ -39,9 +39,11 @@ def get_ancestors_content_types_pks(model):
     Returns content types ids for the ancestors of this model, excluding it.
     """
     from django.contrib.contenttypes.models import ContentType
-    return [ct.pk for ct in
-            ContentType.objects.get_for_models(*model._meta.get_parent_list())
-            .values()]
+    return [
+        ct.pk for ct in ContentType.objects.get_for_models(
+            *model._meta.get_parent_list(), for_concrete_models=False
+        ).values()
+    ]
 
 
 def get_descendants_content_types_pks(model):
@@ -49,9 +51,11 @@ def get_descendants_content_types_pks(model):
     Returns content types ids for the descendants of this model, including it.
     """
     from django.contrib.contenttypes.models import ContentType
-    return [ct.pk for ct in
-            ContentType.objects.get_for_models(*get_descendant_models(model))
-            .values()]
+    return [
+        ct.pk for ct in ContentType.objects.get_for_models(
+            *get_descendant_models(model), for_concrete_models=False
+        ).values()
+    ]
 
 
 def get_search_fields(search_fields):

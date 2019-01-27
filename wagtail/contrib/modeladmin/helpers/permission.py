@@ -112,8 +112,10 @@ class PagePermissionHelper(PermissionHelper):
         pages to make sure we have permission to add a subpage to it.
         """
         # Get queryset of pages where this page type can be added
-        allowed_parent_page_content_types = list(ContentType.objects.get_for_models(*self.model.allowed_parent_page_models()).values())
-        allowed_parent_pages = Page.objects.filter(content_type__in=allowed_parent_page_content_types)
+        parent_page_content_types = ContentType.objects.get_for_models(
+            *self.model.allowed_parent_page_models(), for_concrete_models=False).values()
+
+        allowed_parent_pages = Page.objects.filter(content_type__in=parent_page_content_types)
 
         # Get queryset of pages where the user has permission to add subpages
         if user.is_superuser:

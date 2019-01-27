@@ -175,7 +175,7 @@ def get_default_page_content_type():
     Returns the content type to use as a default for pages whose content type
     has been deleted.
     """
-    return ContentType.objects.get_for_model(Page)
+    return ContentType.objects.get_for_model(Page, for_concrete_model=False)
 
 
 class BasePageManager(models.Manager):
@@ -359,7 +359,7 @@ class Page(AbstractPage, index.Indexed, ClusterableModel, metaclass=PageBase):
             if not self.content_type_id:
                 # set content type to correctly represent the model class
                 # that this was created as
-                self.content_type = ContentType.objects.get_for_model(self)
+                self.content_type = ContentType.objects.get_for_model(self, for_concrete_model=False)
             if 'show_in_menus' not in kwargs:
                 # if the value is not set on submit refer to the model setting
                 self.show_in_menus = self.show_in_menus_default
@@ -863,7 +863,7 @@ class Page(AbstractPage, index.Indexed, ClusterableModel, metaclass=PageBase):
 
     @classmethod
     def get_indexed_objects(cls):
-        content_type = ContentType.objects.get_for_model(cls)
+        content_type = ContentType.objects.get_for_model(cls, for_concrete_model=False)
         return super(Page, cls).get_indexed_objects().filter(content_type=content_type)
 
     def get_indexed_instance(self):
