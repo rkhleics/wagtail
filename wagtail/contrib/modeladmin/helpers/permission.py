@@ -22,11 +22,8 @@ class PermissionHelper:
         Return a queryset of all Permission objects pertaining to the `model`
         specified at initialisation.
         """
-
-        return Permission.objects.filter(
-            content_type__app_label=self.opts.app_label,
-            content_type__model=self.opts.model_name,
-        )
+        content_type = ContentType.objects.get_for_model(self.model, for_concrete_model=False)
+        return Permission.objects.filter(content_type_id=content_type.pk)
 
     def get_perm_codename(self, action):
         return get_permission_codename(action, self.opts)
