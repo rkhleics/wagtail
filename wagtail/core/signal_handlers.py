@@ -47,11 +47,14 @@ def fix_proxy_model_permissions(**kwargs):
 
         WAGTAIL_UPDATE_PROXY_MODEL_PERMISSIONS = True
 
-    This method only makes any difference in projects using Django < 2.2,
-    because Django already associates proxy models permissions and content
-    types in this way from 2.2+.
+    Django already associates proxy models permissions and content
+    types in this way from 2.2 onwards, so this method only has any affect in
+    projects using earlier Django versions.
     """
-    if django.VERSION >= (2, 2) or not getattr(settings, 'WAGTAIL_UPDATE_PROXY_MODEL_PERMISSIONS', False):
+    if(
+        django.VERSION >= (2, 2) or
+        not getattr(settings, 'WAGTAIL_UPDATE_PROXY_MODEL_PERMISSIONS', False)
+    ):
         return
 
     for model in django.apps.get_models():
