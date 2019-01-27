@@ -1,6 +1,7 @@
 import logging
 
 import django
+from django.conf import settings
 from django.contrib.auth.models import Permission
 from django.contrib.contenttypes.models import ContentType
 from django.core.cache import cache
@@ -34,7 +35,23 @@ def post_delete_page_log_deletion(sender, instance, **kwargs):
 
 
 def fix_proxy_model_permissions(**kwargs):
-    if django.VERSION >= (2, 2):
+    """
+    A back-fill that ensures ``Permission`` objects for proxy models are
+    associated with the ``ContentType`` of the proxy model, instead of that
+    of the concrete model. This is necessary to allow Wagtail to support proxy
+    models consitently accross all supported versions of Django (2.0+).
+
+    Because it affects permissions for ALL proxy models in a project,
+    regardless of whether they are registered with Wagtail, developers must
+    opt in to this behaviour by adding the following to their Django settings::
+
+        WAGTAIL_UPDATE_PROXY_MODEL_PERMISSIONS = True
+
+    This method only makes any difference in projects using Django < 2.2,
+    because Django already associates proxy models permissions and content
+    types in this way from 2.2+.
+    """
+    if django.VERSION >= (2, 2) or not getattr(settings, 'WAGTAIL_UPDATE_PROXY_MODEL_PERMISSIONS', False):
         return
 
     for model in django.apps.get_models():
